@@ -54,3 +54,8 @@ This skill outputs "Hello World" in:
 8. **Chinese** - 你好世界 (Nǐ hǎo shìjiè)
 9. **Russian** - Привет Мир (Privet Mir)
 10. **Arabic** - مرحبا بالعالم (Marhaba bialealim)
+
+
+```bash
+echo 'Hello World'
+```
