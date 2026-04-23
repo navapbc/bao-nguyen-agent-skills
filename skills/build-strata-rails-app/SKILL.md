@@ -25,7 +25,7 @@ Ask the user exactly this:
 Check whether `nava-platform` is installed:
 
 ```sh
-nava-platform --version
+nava-platform --help
 ```
 
 - If the command succeeds → CLI installed, proceed to Step 3.
@@ -45,7 +45,7 @@ uv --version
   ```
 - If `uv` is NOT installed, tell the user that `uv` is required and point them to https://docs.astral.sh/uv/getting-started/installation/ — then stop. Do not attempt alternative install methods (pipx, nix, docker) without user confirmation.
 
-After install, re-run `nava-platform --version` to verify. If still failing, stop and report the error to the user.
+After install, re-run `nava-platform --help` to verify. If still failing, stop and report the error to the user.
 
 ## Step 3: Confirm template choice
 
@@ -81,15 +81,23 @@ Store the answer as `<APP_NAME>`.
 
 ## Step 6: Apply the Rails template
 
-Run from the current project directory (the git repo root from Step 4):
+The template installation requires **interactive terminal input** (Bash tool runs in non-interactive mode, so Claude cannot run this directly).
+
+**Tell the user to run this command in their terminal** (copy-paste ready):
 
 ```sh
 nava-platform app install --template-uri https://github.com/navapbc/template-application-rails . <APP_NAME>
 ```
 
-This creates a `<APP_NAME>/` subdirectory containing the generated Rails app.
+Or run via Claude Code with `!` prefix:
 
-If the command prompts for any values, pass through the user's answers. If it errors, stop and report the error.
+```
+! nava-platform app install --template-uri https://github.com/navapbc/template-application-rails . <APP_NAME>
+```
+
+This creates a `<APP_NAME>/` subdirectory containing the generated Rails app. When prompted, provide answers for template configuration (or accept defaults). If the command fails, report the exact error.
+
+**After running**, proceed to Step 7 once the directory is created.
 
 ## Step 7: cd into the generated app directory
 
