@@ -1,6 +1,6 @@
 ---
 name: build-strata-rails-app
-description: Use when the user wants to scaffold, bootstrap, start, or create a new Nava Strata application from the Rails application template (navapbc/template-application-rails) using the Nava Platform CLI. Triggers on "build a strata app", "start a strata rails app", "scaffold a rails app", "apply the rails template", "set up template-application-rails", or when the user is in a fresh/empty project directory and mentions Strata + Rails.
+description: Scaffolds a new Nava Strata application using nava-platform CLI and the navapbc/template-application-rails template. Use when user says build a strata app, scaffold a rails app, apply the rails template, or start a new Strata Rails project.
 ---
 
 # Build Strata Rails App

@@ -1,0 +1,35 @@
+name: Lint Skills
+
+on:
+  push:
+    paths:
+      - "skills/**"
+      - "scripts/lint_skills.py"
+      - "tests/test_lint_skills.py"
+      - ".github/workflows/lint-skills.yml"
+  pull_request:
+    paths:
+      - "skills/**"
+      - "scripts/lint_skills.py"
+      - "tests/test_lint_skills.py"
+      - ".github/workflows/lint-skills.yml"
+
+jobs:
+  lint:
+    name: Skill Linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run linter tests
+        run: python -m pytest tests/test_lint_skills.py -v
+
+      - name: Run skill linter
+        run: python scripts/lint_skills.py
