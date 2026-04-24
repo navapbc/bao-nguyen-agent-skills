@@ -60,16 +60,30 @@ docker ps
 
 **Check for Postgres port (5432) conflicts:**
 
-Check if any containers are currently using port 5432:
+Check if anything is listening on port 5432:
 
 ```sh
-docker ps --filter "publish=5432" -q
+lsof -iTCP:5432 -sTCP:LISTEN -t
 ```
 
-- If the output is NOT empty, stop those containers:
+- If the output is **empty** → port is free, proceed.
+- If the output is **NOT empty** → something is using the port. Determine what it is:
+
   ```sh
-  docker stop $(docker ps --filter "publish=5432" -q)
+  lsof -iTCP:5432 -sTCP:LISTEN
   ```
+
+  Inspect the `COMMAND` column of the output:
+
+  - **If the command is `com.docke` / `docker` / `docker-proxy`** → a Docker container is occupying the port. Stop it:
+    ```sh
+    docker stop $(docker ps --filter "publish=5432" -q)
+    ```
+  - **If the command is `postgres`** → a native PostgreSQL instance is running (likely via Homebrew or a system package). **Do NOT stop it automatically.** Tell the user:
+    > A local PostgreSQL server is already running on port 5432. Please stop it before continuing. For Homebrew: `brew services stop postgresql@16` (adjust the version if needed). Then re-run this step.
+
+    Stop and wait for the user to confirm they have freed the port.
+  - **If the command is something else** → report the process name to the user and ask them to free port 5432 manually. Stop and wait for confirmation.
 
 Then check git status:
 
@@ -92,7 +106,21 @@ Validate the answer matches `^[a-z0-9_-]+$`. If not, ask again.
 
 Store the answer as `<APP_NAME>`.
 
-## Step 5: Apply the Rails template
+## Step 5: Check for existing app directory
+
+Before applying the template, verify that a directory named `<APP_NAME>/` does **not** already exist in the current working directory:
+
+```sh
+test -d <APP_NAME>
+```
+
+- If the directory **does NOT exist** (command exits non-zero) → proceed to Step 6.
+- If the directory **already exists** (command exits zero) → warn the user:
+  > A directory named `<APP_NAME>/` already exists. Installing the template into an existing directory may cause conflicts. Please rename or remove it first, then confirm to continue.
+
+  Stop and wait for the user to resolve before proceeding.
+
+## Step 6: Apply the Rails template
 
 The template installation requires **interactive terminal input** (Bash tool runs in non-interactive mode, so Claude cannot run this directly).
 
@@ -104,15 +132,27 @@ nava-platform app install --template-uri https://github.com/navapbc/template-app
 
 This creates a `<APP_NAME>/` subdirectory containing the generated Rails app. When prompted, provide answers for template configuration (or accept defaults). If the command fails, report the exact error.
 
-**After running**, proceed to Step 6 once the directory is created.
+**After running**, proceed to Step 7 once the directory is created.
 
-## Step 6: Proceed into the generated app directory
+## Step 7: Proceed into the generated app directory
 
-After `nava-platform app install` completes, the working directory is automatically `<APP_NAME>/`. All subsequent commands run from inside this directory. No additional `cd` needed.
+After `nava-platform app install` completes, check the current working directory:
 
-## Step 7: Prepare and verify the app
+```sh
+pwd
+```
 
-Run the following make targets **in order**. Each must succeed before running the next:
+- If the output **already ends with** `<APP_NAME>` (e.g. `/Users/me/my-project/<APP_NAME>`) → you are already inside the app directory. Proceed to Step 8.
+- If the output does **NOT** end with `<APP_NAME>` (e.g. `/Users/me/my-project`) → you are still in the project root. Change into the app directory:
+  ```sh
+  cd <APP_NAME>
+  ```
+
+All subsequent commands in Step 8 must run from inside `<APP_NAME>/`.
+
+## Step 8: Prepare and verify the app
+
+Run the following make targets **in order** from inside the `<APP_NAME>/` directory. Each must succeed before running the next:
 
 1. `make .env` — generate the local `.env` file
 2. `make init-db` — create and initialize test database
@@ -125,7 +165,7 @@ If any step fails, stop and report the exact error to the user. Do not proceed t
 
 **Note:** Steps 4-6 may show deprecation warnings (e.g., "Passing nil to :model argument"). These are expected with fresh templates and do not indicate failure.
 
-## Step 8: Report success
+## Step 9: Report success
 
 If `make lint` and `make test` both pass, the app compiled correctly. Tell the user:
 
