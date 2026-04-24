@@ -7,25 +7,41 @@ Agent skills for use with [Claude Code](https://claude.ai/code) and other AI cod
 Add all skills from this repo:
 
 ```bash
-npx skills add bao-nguyen/bao-nguyen-agent-skills
+npx skills add https://github.com/navapbc/bao-nguyen-agent-skills
 ```
 
 Install a specific skill:
 
 ```bash
-npx skills add bao-nguyen/bao-nguyen-agent-skills --skill hello-world
+npx skills add https://github.com/navapbc/bao-nguyen-agent-skills --skill hello-world
 ```
 
 Install globally (available across all projects):
 
 ```bash
-npx skills add bao-nguyen/bao-nguyen-agent-skills -g -a claude-code
+npx skills add https://github.com/navapbc/bao-nguyen-agent-skills -g -a claude-code
 ```
 
 Preview available skills without installing:
 
 ```bash
-npx skills add bao-nguyen/bao-nguyen-agent-skills --list
+npx skills add https://github.com/navapbc/bao-nguyen-agent-skills --list
+```
+
+## Uninstall
+
+Remove a specific skill:
+
+```bash
+npx skills remove hello-world
+```
+
+## Updating
+
+Update skills:
+
+```bash
+npx skills update
 ```
 
 ## Available Skills
