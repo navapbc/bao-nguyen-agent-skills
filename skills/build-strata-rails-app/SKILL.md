@@ -108,14 +108,18 @@ Store the answer as `<APP_NAME>`.
 
 ## Step 5: Check for existing app directory
 
-Before applying the template, verify that a directory named `<APP_NAME>/` does **not** already exist in the current working directory:
+Before applying the template, verify that a directory named `<APP_NAME>/` does **not** already exist in the current working directory. Use `ls` (avoid `test -d` — it returns true for symlinks to directories and other edge cases that aren't real fresh-dir collisions):
 
 ```sh
-test -d <APP_NAME>
+ls -ld -- <APP_NAME>/ 2>/dev/null
 ```
 
-- If the directory **does NOT exist** (command exits non-zero) → proceed to Step 6.
-- If the directory **already exists** (command exits zero) → warn the user:
+The trailing `/` forces the path to resolve as a directory; if `<APP_NAME>` is a regular file or doesn't exist, `ls` exits non-zero with no output.
+
+Interpret the result:
+
+- **No output, non-zero exit** → directory does not exist. Proceed to Step 6.
+- **Output prints a directory entry, zero exit** → directory already exists. Warn the user:
   > A directory named `<APP_NAME>/` already exists. Installing the template into an existing directory may cause conflicts. Please rename or remove it first, then confirm to continue.
 
   Stop and wait for the user to resolve before proceeding.
@@ -148,9 +152,25 @@ pwd
   cd <APP_NAME>
   ```
 
-All subsequent commands in Step 8 must run from inside `<APP_NAME>/`.
+All subsequent commands (Step 8 onward) must run from inside `<APP_NAME>/`.
 
-## Step 8: Prepare and verify the app
+## Step 8: Verify Ruby version
+
+The generated app pins a Ruby version in `.ruby-version` and/or `Gemfile`. The make targets in Step 9 (`make lint`, `make test`, asset precompile) will fail confusingly if the active Ruby doesn't match.
+
+**Follow the shared reference: [`references/ruby-version-check.md`](../../references/ruby-version-check.md)** (relative to the repo root of this skills repository).
+
+It walks through:
+
+- **A.** read `.ruby-version` / `Gemfile` / `.tool-versions` → `<REQUIRED_RUBY>`
+- **B.** compare against `ruby -v`
+- **C.** ask the user which version manager they use (rbenv / asdf / rvm / chruby / other)
+- **D.** install the version if missing, then activate it (per-manager commands in the reference's table)
+- **E.** verify `bundle -v`
+
+`<RAILS_DIR>` in the reference = the `<APP_NAME>/` directory you `cd`-ed into in Step 7. Do not proceed to Step 9 until `ruby -v` matches `<REQUIRED_RUBY>` and `bundle -v` succeeds.
+
+## Step 9: Prepare and verify the app
 
 Run the following make targets **in order** from inside the `<APP_NAME>/` directory. Each must succeed before running the next:
 
@@ -165,7 +185,7 @@ If any step fails, stop and report the exact error to the user. Do not proceed t
 
 **Note:** Steps 4-6 may show deprecation warnings (e.g., "Passing nil to :model argument"). These are expected with fresh templates and do not indicate failure.
 
-## Step 9: Report success
+## Step 10: Report success
 
 If `make lint` and `make test` both pass, the app compiled correctly. Tell the user:
 
