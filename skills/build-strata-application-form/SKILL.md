@@ -11,7 +11,7 @@ Extends an existing Strata Rails app (typically scaffolded by the `build-strata-
 
 **Scope (currently):** application forms only. Other Strata features (cases, business processes, tasks) are out of scope for this skill.
 
-**TDD is mandatory.** Every step that produces or modifies Ruby code (model, migration, controller, views, routes) must follow the `test-driven-development` skill: write a failing RSpec spec, run `make test` to watch it fail, write minimal Ruby, run `make test` to watch it pass, then `make lint`. Generator output (model stubs, migration stubs, scaffold view specs) is NOT a substitute — replace generator-stub specs with real failing specs before adding behavior. See `skills/test-driven-development/SKILL.md` and `skills/test-driven-development/testing-anti-patterns.md`.
+**TDD is mandatory.** Every step that produces or modifies Ruby code (model, migration, controller, views, routes) must follow the `test-driven-development` skill: write a failing RSpec spec, run `make test` to watch it fail, write minimal Ruby, run `make test` to watch it pass, then `make lint`. Generator output (model stubs, migration stubs, scaffold view specs) is NOT a substitute — replace generator-stub specs with real failing specs before adding behavior. See [`references/test-driven-development.md`](../../references/test-driven-development.md).
 
 ## Step 1: Confirm intent
 
@@ -223,7 +223,7 @@ Loop back to Step 9 if attribute changes are needed. Only proceed once every che
 - Required-attribute validations the rule file specifies
 - Status transitions (`in_progress` → `submitted`) and the immutability rule (no edits after `submitted`)
 
-Run `make test` and confirm these specs **fail** (model doesn't exist yet). See the `test-driven-development` skill — do not skip the watch-it-fail step.
+Run `make test` and confirm these specs **fail** (model doesn't exist yet). See [`references/test-driven-development.md`](../../references/test-driven-development.md) — do not skip the watch-it-fail step.
 
 **10e. Generate the model:**
 
@@ -285,7 +285,7 @@ Save the answer as `<ENTRY_POINT>`. Do not invent — if the user is unclear, as
 
 ## Step 13: Generate views and wire up the entry point (TDD)
 
-Follow the **generated `application_form` rule file's recipe** for views (controllers, views, routes). Apply TDD throughout — see `test-driven-development` skill.
+Follow the **generated `application_form` rule file's recipe** for views (controllers, views, routes). Apply TDD throughout — see [`references/test-driven-development.md`](../../references/test-driven-development.md).
 
 **13a. Write failing request and system specs FIRST.** Cover at least:
 
