@@ -158,7 +158,7 @@ All subsequent commands (Step 8 onward) must run from inside `<APP_NAME>/`.
 
 The generated app pins a Ruby version in `.ruby-version` and/or `Gemfile`. The make targets in Step 9 (`make lint`, `make test`, asset precompile) will fail confusingly if the active Ruby doesn't match.
 
-**Follow the shared reference: [`references/ruby-version-check.md`](../../references/ruby-version-check.md)** (relative to the repo root of this skills repository).
+**Follow the shared reference: [`references/ruby-version-check.md`](references/ruby-version-check.md)**.
 
 It walks through:
 
@@ -191,7 +191,7 @@ If `make lint` and `make test` both pass, the app compiled correctly. Tell the u
 
 > **App is ready.** Run `make start-container` from inside `<APP_NAME>/`, then visit http://localhost:3000
 
-**For all Ruby development on this app**, follow the shared reference: [`references/test-driven-development.md`](../../references/test-driven-development.md)
+**For all Ruby development on this app**, follow the shared reference: [`references/test-driven-development.md`](references/test-driven-development.md)
 
 ## Common pitfalls
 
