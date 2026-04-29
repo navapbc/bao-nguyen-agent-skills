@@ -13,6 +13,8 @@ Extends an existing Strata Rails app (typically scaffolded by the `build-strata-
 
 **TDD is mandatory.** Every step that produces or modifies Ruby code (model, migration, controller, views, routes) must follow the `test-driven-development` skill: write a failing RSpec spec, run `make test` to watch it fail, write minimal Ruby, run `make test` to watch it pass, then `make lint`. Generator output (model stubs, migration stubs, scaffold view specs) is NOT a substitute — replace generator-stub specs with real failing specs before adding behavior. See [`references/test-driven-development.md`](references/test-driven-development.md).
 
+**Before reporting completion**, follow the verification reference: [`references/verification.md`](references/verification.md).
+
 ## Step 1: Confirm intent
 
 Ask the user exactly this:
@@ -333,6 +335,8 @@ make test
 If either fails, stop and report. The user can then decide next steps (fix tests, adjust the form, etc.).
 
 ## Step 15: Report
+
+Before reporting, follow [`references/verification.md`](references/verification.md) to confirm `make lint` and `make test` both passed in the current message.
 
 Tell the user:
 

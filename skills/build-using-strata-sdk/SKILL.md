@@ -13,6 +13,8 @@ Extends an existing Strata Rails app (typically scaffolded by the `build-strata-
 
 **TDD is mandatory.** Every step that produces or modifies Ruby code must follow the `test-driven-development` skill: write a failing RSpec spec, run `make test` to watch it fail, write minimal Ruby, run `make test` to watch it pass, then `make lint`. See [`references/test-driven-development.md`](references/test-driven-development.md).
 
+**Before reporting completion**, follow the verification reference: [`references/verification.md`](references/verification.md).
+
 ## Step 1: Confirm intent
 
 Ask the user exactly this:
@@ -317,6 +319,8 @@ make test
 If either fails, stop and report.
 
 ## Step 14: Report
+
+Before reporting, follow [`references/verification.md`](references/verification.md) to confirm `make lint` and `make test` both passed in the current message.
 
 > **Application form ready.** Run `make start-container` and visit the entry point you chose. The form lives at `app/models/strata/<form_name>.rb`. SDK reference docs are at `tmp/strata-sdk/docs/` — re-run `git -C tmp/strata-sdk pull` after upgrading the gem to keep docs in sync.
 
