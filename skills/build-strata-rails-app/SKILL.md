@@ -126,17 +126,15 @@ Interpret the result:
 
 ## Step 6: Apply the Rails template
 
-The template installation requires **interactive terminal input** (Bash tool runs in non-interactive mode, so Claude cannot run this directly).
-
-**Tell the user to run this command in their terminal** (copy-paste ready):
+Run the template install directly. Pass `--data app_local_port=3000` to pre-answer the only interactive prompt (the CLI auto-injects `app_name` from the positional argument):
 
 ```sh
-nava-platform app install --template-uri https://github.com/navapbc/template-application-rails . <APP_NAME>
+nava-platform app install --template-uri https://github.com/navapbc/template-application-rails --data app_local_port=3000 . <APP_NAME>
 ```
 
-This creates a `<APP_NAME>/` subdirectory containing the generated Rails app. When prompted, provide answers for template configuration (or accept defaults). If the command fails, report the exact error.
+This creates a `<APP_NAME>/` subdirectory containing the generated Rails app. If the command fails, stop and report the exact error to the user.
 
-**After running**, proceed to Step 7 once the directory is created.
+**After success**, proceed to Step 7.
 
 ## Step 7: Proceed into the generated app directory
 
