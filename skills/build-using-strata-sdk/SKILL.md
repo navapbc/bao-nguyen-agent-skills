@@ -136,36 +136,22 @@ Interpret the output:
 
 ## Step 4: Write the plan document
 
-Create `<RAILS_DIR>/docs/` if it doesn't exist. Write `<RAILS_DIR>/docs/<app-type>-application-form-plan.md` using the decisions captured in Step 2:
+**Follow the shared reference: [`references/writing-plans.md`](references/writing-plans.md)** for plan structure, task granularity, and no-placeholder rules.
 
-```markdown
-# <APP_TYPE> Application Form — Build Plan
+Create `<RAILS_DIR>/docs/` if it doesn't exist. Save the plan to `<RAILS_DIR>/docs/<app-type>-application-form-plan.md`. The plan header must cover:
 
-## Application Type
-<APP_TYPE> → model: `<FORM_NAME>`
-
-## Attributes
-| Attribute | Strata type | Notes |
-|-----------|-------------|-------|
-<rows from confirmed <ATTRS>>
-
-## Entry Point
-<ENTRY_POINT description>
-
-## Post-Submission Behavior
-<POST_SUBMIT description>
-
-## Return Navigation
-<RETURN_BEHAVIOR description>
-
-## What Will Be Built
-- Model: `app/models/strata/<form_name>.rb`
-- Migration: base columns (`status`, `user_id`, `submitted_at`) + attributes above
-- Controller + views for the form
-- Entry point wired per selection above
-- Post-submit flow per selection above
-- Return navigation per selection above
-```
+- **Application Type:** `<APP_TYPE>` → model `<FORM_NAME>`
+- **Attributes table:** the confirmed `<ATTRS>` list with Strata types and notes
+- **Entry Point:** `<ENTRY_POINT>` description
+- **Post-Submission Behavior:** `<POST_SUBMIT>` description
+- **Return Navigation:** `<RETURN_BEHAVIOR>` description
+- **What Will Be Built:**
+  - Model: `app/models/strata/<form_name>.rb`
+  - Migration: base columns (`status`, `user_id`, `submitted_at`) + attributes above
+  - Controller + views for the form
+  - Entry point wired per selection above
+  - Post-submit flow per selection above
+  - Return navigation per selection above
 
 ## Step 5: User confirms plan
 
