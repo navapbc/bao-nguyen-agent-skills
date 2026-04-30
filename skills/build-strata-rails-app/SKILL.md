@@ -191,8 +191,6 @@ If `make lint` and `make test` both pass, the app compiled correctly. Tell the u
 
 > **App is ready.** Run `make start-container` from inside `<APP_NAME>/`, then visit http://localhost:3000
 
-**For all Ruby development on this app**, follow the shared reference: [`references/test-driven-development.md`](references/test-driven-development.md)
-
 ## Common pitfalls
 
 | Problem | Fix |
