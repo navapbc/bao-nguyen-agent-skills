@@ -124,9 +124,9 @@ Derive `<FORM_NAME>` (e.g. `UnemploymentApplicationForm`) and save `<APP_TYPE>`.
 
 **5b. Attribute selection — propose SDK-supported defaults**
 
-> Each piece of data the form collects is a **Strata attribute** with a typed widget (e.g. `name`, `address`, `tax_id`, `memorable_date`, `email`, `phone`). I'll suggest a starter set based on the SDK's catalog and `<APP_TYPE>`, then we'll refine it together.
+> Each piece of data the form collects is a **Strata attribute** with a typed widget (e.g. `name`, `address`, `tax_id`, `memorable_date`, `email`, `phone`). I'll suggest a starter set based on the SDK's catalog and `<APP_TYPE>`, then we'll refine it together. For fields the SDK doesn't cover, we'll use standard Rails types.
 
-Propose a starter set drawn **only** from `tmp/strata-sdk/docs/strata-attributes.md`. Common base:
+Propose a starter set from `tmp/strata-sdk/docs/strata-attributes.md`. Common base:
 
 | Attribute | Strata type | Why |
 |-----------|-------------|-----|
@@ -146,9 +146,40 @@ Ask:
 
 > **Confirm this attribute list, or tell me what to add/remove. (yes / edit)**
 
-Save `<ATTRS>` as `name:strata_type` pairs separated by spaces. Every type must appear in the SDK attribute catalog from Step 4 — if not, propose a supported substitute and re-ask.
+Save `<ATTRS>` as `name:type` pairs separated by spaces. Prefer Strata types from the SDK catalog. If no Strata type covers a needed field, fall back to a Rails primitive (`string`, `integer`, `boolean`, `date`, `datetime`, `decimal`, `text`). Note primitive-type attributes in the plan — they won't get a Strata widget and need a plain form field in the view.
 
-**5c. Entry point — explain options first**
+**5c. Attribute validations**
+
+> Each attribute can have Rails validations (e.g. presence/required, format, numericality). Based on the attributes you chose, I'll propose sensible defaults — confirm or edit.
+
+Propose defaults based on `<ATTRS>`:
+
+- Contact/identity fields (`name`, `email`, `phone`, `ssn`/`tax_id`) → `presence: true`
+- `email` → format validation
+- `phone` → format validation
+- Numeric fields (income, household size, etc.) → `numericality: { greater_than: 0 }`
+- Date fields → `presence: true` if required
+
+Ask:
+
+> **Confirm these validations, or tell me what to add/remove. (yes / edit)**
+
+Save as `<VALIDATIONS>` map (`attr_name: [validation_list]`). TDD in Step 10 will drive these via spec → model loop.
+
+**5d. Form layout — single page or multi-step wizard**
+
+> Application forms can be a single scrollable page or split into multiple steps (wizard). Multi-step reduces cognitive load on longer forms. **How should this form work?**
+>
+> 1. Single page — all fields on one screen, one Submit button
+> 2. Multi-step wizard — fields split across pages (e.g. "Personal Info" → "Employment" → "Review & Submit")
+
+If multi-step: ask how many steps, what each step is named, and which `<ATTRS>` go on each.
+
+Save as `<FORM_LAYOUT>` — either `single` or a map of `step_name: [attrs]`.
+
+If multi-step, check the Step 4 generator inventory for a wizard/step generator. If none exists, flag in the plan as needing hand-written controller actions and note additional complexity.
+
+**5e. Entry point — explain options first**
 
 > After a user signs in, they need a way to reach this form. The most common patterns are: a post-login landing page, a dashboard card/link, or a button on an existing page. **Which fits your app?**
 >
@@ -159,7 +190,7 @@ Save `<ATTRS>` as `name:strata_type` pairs separated by spaces. Every type must 
 
 Save as `<ENTRY_POINT>`.
 
-**5d. Post-submission behavior**
+**5f. Post-submission behavior**
 
 > When the user clicks Submit, the form transitions to `status: 'submitted'` and becomes immutable. **What should the user see immediately after?**
 >
@@ -169,7 +200,7 @@ Save as `<ENTRY_POINT>`.
 
 Save as `<POST_SUBMIT>`.
 
-**5e. Return navigation**
+**5g. Return navigation**
 
 > If the user comes back later (after submitting), the form is locked. **What should they see when they revisit the entry point?**
 >
@@ -180,26 +211,28 @@ Save as `<POST_SUBMIT>`.
 
 Save as `<RETURN_BEHAVIOR>`.
 
-**5f. Surface SDK-driven follow-ups**
+**5h. Surface SDK-driven follow-ups**
 
 Based on the SDK summary from Step 4, ask any of the following that are relevant — only if the user hasn't already answered:
 
 - Does this form need to attach to an existing **case** (or create one on submit)?
 - Should submission kick off a **business process** or assign a **task** to a caseworker? (Note that the build of cases/processes/tasks is out of scope for this skill — but if the user says yes, flag it in the plan as a follow-up so they don't expect it to ship in this run.)
-- Does the program require an SSN? If so, add `ssn:tax_id` to `<ATTRS>` and re-confirm 5b.
+- Does the program require an SSN? If so, add `ssn:tax_id` to `<ATTRS>` and re-confirm 5b and 5c.
 - Are there required attachments (uploads)? If so, check whether the SDK exposes an `attachment` attribute and add it; otherwise flag as out-of-scope.
 
-Re-prompt 5b if any answer changes the attribute list.
+Re-prompt 5b and 5c if any answer changes the attribute list.
 
 ## Step 6: Write the plan
 
 Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<RAILS_DIR>/docs/<app-type>-application-form-plan.md`. The plan header must list:
 
 - `<APP_TYPE>` → `<FORM_NAME>`
-- `<ATTRS>` table (Strata type + reason)
+- `<ATTRS>` table (type + reason; flag any primitive-type attributes)
+- `<VALIDATIONS>` table (attribute → validations)
+- `<FORM_LAYOUT>` (single page, or step map)
 - `<ENTRY_POINT>`, `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`
 - Generators that will be invoked (taken from the Step 4 inventory) for each artifact: model, migration, controller, views, specs
-- Out-of-scope items surfaced in 5f (cases, business processes, tasks, attachments) — listed but not built
+- Out-of-scope items surfaced in 5h (cases, business processes, tasks, attachments) — listed but not built
 
 Tell the user:
 
@@ -213,10 +246,12 @@ Before any code or generator runs, walk the confirmed plan against the SDK clone
 
 | Check | Source of truth |
 |-------|-----------------|
-| Every `<ATTRS>` type exists | `tmp/strata-sdk/docs/strata-attributes.md` |
+| Every `<ATTRS>` Strata type exists (primitives exempt) | `tmp/strata-sdk/docs/strata-attributes.md` |
 | Form name extends `Strata::ApplicationForm` | `tmp/strata-sdk/docs/intake-application-forms.md` |
 | Every artifact in the plan has a matching generator | Step 4 generator inventory |
 | Required base columns (`status`, `user_id`, `submitted_at`) are in the migration plan | SDK form guide |
+| `<VALIDATIONS>` are expressible as Rails model validations | Rails docs |
+| `<FORM_LAYOUT>` is achievable with available generators (or flagged as manual) | Step 4 generator inventory |
 | `<ENTRY_POINT>` / `<POST_SUBMIT>` / `<RETURN_BEHAVIOR>` are achievable with SDK-provided helpers | SDK form guide |
 
 If any check fails, update the plan, re-confirm with the user, and repeat this step. Do not proceed to Step 8 until every check passes.
@@ -246,9 +281,10 @@ If `bundle install` fails, stop and report the exact error.
 
 ```sh
 make build
+make precompile-assets
 ```
 
-Stop and report on failure.
+Stop and report on failure. (`make precompile-assets` compiles front-end assets inside the container — skipping it causes asset-related test failures in 9c.)
 
 **9c. Verify the existing test suite still passes:**
 
@@ -302,9 +338,11 @@ Then `make test && make lint`. If a previously-passing spec fails because of the
 - `GET <form>/new` → 200 for authed user, redirect otherwise
 - `POST <form>` valid → record created, `status: 'in_progress'`
 - `POST <form>` invalid → re-render with errors
+- Each `<VALIDATIONS>` rule fires correctly on invalid input (presence, format, numericality)
 - `<POST_SUBMIT>` behavior matches the chosen option
 - `<RETURN_BEHAVIOR>` matches the chosen option
 - `<ENTRY_POINT>` reaches the form per the chosen option
+- If `<FORM_LAYOUT>` is multi-step: back/next navigation works, each step shows only its assigned attributes, skipping a step redirects correctly
 
 Show route diffs and view edits to the user before saving.
 
