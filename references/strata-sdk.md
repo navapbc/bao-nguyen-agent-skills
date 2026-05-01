@@ -27,26 +27,26 @@ If a doc is missing, the clone is incomplete — re-clone or pin to a tag with t
 ls tmp/strata-sdk/lib/generators/strata/
 ```
 
-Expected: `application_form`, `application_form_views`, `business_process`, `case`, `determination`, `income_records_migration`, `migration`, `model`, `rules`, `staff`, `task`. Read each `USAGE` and `*_generator.rb`. Option flags are **hyphenated** (`--business-process`, `--application-form`, `--skip-*`) — the USAGE docs sometimes show underscores, but the underscored form is silently ignored.
+Expected: `application_form`, `application_form_views`, `business_process`, `case`, `determination`, `income_records_migration`, `migration`, `model`, `staff`, `task`. Read each `USAGE` and `*_generator.rb`. Option flags are **hyphenated** (`--business-process`, `--application-form`, `--skip-*`) — the USAGE docs sometimes show underscores, but the underscored form is silently ignored.
 
 | Generator | What it produces | Notes |
 |-----------|------------------|-------|
 | `strata:application_form` | Model + auto-chains `strata:model` (writes migration with base attrs `user_id:uuid`, `status:integer`, `submitted_at:datetime`) | Auto-suffixes `ApplicationForm`. **No separate migration step needed.** |
-| `strata:case` | Model at `app/models/strata/<name>_case.rb` + **staff** controller `app/controllers/<cases>_controller.rb` + staff views (`index`, `show`, `documents`, `tasks`, `notes`) + routes scoped under `/staff` + locales | Auto-suffixes `Case`. Prompts to chain BP and AF. Case base attrs include `application_form_id:uuid` — Case `belongs_to :application_form`, NOT the reverse. |
+| `strata:case` | Model at `app/models/strata/<name>_case.rb` + **staff** controller `app/controllers/<cases>_controller.rb` + staff views (`index`, `show`, `documents`, `tasks`, `notes`) + routes scoped under `/staff` + locales | Auto-suffixes `Case`. Prompts to chain BP and AF. Case has `application_form_id:uuid` attribute for query-based lookups to the application form (NOT a Rails relationship). |
 | `strata:business_process` | `app/business_processes/<name>_business_process.rb` (NOT `app/models/`) + edits `config/application.rb` to register event listening | |
 | `strata:application_form_views` | Applicant views from a `Strata::Flows::ApplicationFormFlow` subclass | Requires the flow class to exist first (no generator for the flow class itself). |
 | `strata:migration` | Ad-hoc migrations | **Do NOT** re-run for the application form — `strata:application_form` already chains it. |
-| `strata:task`, `strata:staff`, `strata:model`, `strata:rules`, `strata:determination`, `strata:income_records_migration` | Specialized | Mostly out of scope for application-form workflows. |
+| `strata:task`, `strata:staff`, `strata:model`, `strata:determination`, `strata:income_records_migration` | Specialized | Mostly out of scope for application-form workflows. |
 
-**Generation order (per `docs/generators.md`):** `strata:case` first (auto-chains BP + AF) → optional `strata:task` → define flow class → `strata:application_form_views`.
+**Generation order (per `docs/generators.md`):** `strata:application_form` first → `strata:case` → `strata:business_process` → optional `strata:task` → define flow class → `strata:application_form_views`.
 
 **Every code-producing step should prefer an SDK generator** over hand-writing files when a matching generator exists.
 
 ## 3. Domain model
 
-### Relations
+### Relations (domain-driven, query-based — NO Rails relationships)
 
-- `Case belongs_to :application_form` via `application_form_id`. **Not** the reverse — application forms do not have `case_id`.
+- Case stores `application_form_id:uuid` for query-based lookups to the application form. Use `<PROGRAM>ApplicationForm.find(application_form_id)` or the `scope :for_application_form` provided by `Strata::Case`. There is NO `belongs_to` declaration — application forms and cases are linked via queries to keep domain models flexible and prevent N+1 issues. Application forms do NOT have a `case_id`.
 - `BusinessProcess` governs the case lifecycle; `business_process_current_step` lives on Case.
 
 ### `Strata::ApplicationForm` (extend in your model)
@@ -60,10 +60,13 @@ Expected: `application_form`, `application_form_views`, `business_process`, `cas
 
 - Base attrs auto-injected by `strata:case`: `application_form_id:uuid`, `status:integer`, `business_process_current_step:string`, `facts:jsonb` — do not pass these to the generator.
 - Class method `business_process` returns the bound BP class.
+- Class method `application_form_class` returns the application form class name (string) by convention (`name.sub("Case", "ApplicationForm")`).
+- `scope :for_application_form` provides query-based lookup by `application_form_id`.
+- The consuming app should define an `application_form` convenience method on the case model for direct lookup (e.g., `def application_form; <PROGRAM>ApplicationForm.find(application_form_id); end`).
 
 ### Attribute types
 
-See `tmp/strata-sdk/docs/strata-attributes.md` for the full catalog. Common: `name`, `address`, `tax_id`, `memorable_date`, `email`, `phone`. Use Strata types whenever covered; fall back to Rails primitives (`string`, `integer`, `boolean`, `date`, `datetime`, `decimal`, `text`) for fields the SDK doesn't model — primitive fields won't get a Strata widget and need a plain form field in the view.
+See `tmp/strata-sdk/docs/strata-attributes.md` for the full catalog. Strata types: `name`, `address`, `tax_id`, `memorable_date`, `money`, `us_date`, `year_month`, `year_quarter`, `array`, `range`. Common fields like `email` and `phone` are NOT Strata types — use Rails primitives (`:string`) for them. Fall back to Rails primitives (`string`, `integer`, `boolean`, `date`, `datetime`, `decimal`, `text`) for any fields the SDK doesn't model — primitive fields won't get a Strata widget and need a plain form field in the view.
 
 ## 4. Two distinct UI surfaces
 
@@ -226,7 +229,7 @@ Walk any application-form plan against these checks before generating code. Each
 |-------|-----------------|
 | Every attribute's Strata type exists (Rails primitives exempt) | `docs/strata-attributes.md` |
 | Form model extends `Strata::ApplicationForm`; case model extends `Strata::Case` | `docs/intake-application-forms.md`, `docs/case-management-business-process.md` |
-| Plan does NOT add `case_id` or `belongs_to :case` to the application form (relation lives on Case via `application_form_id`) | `app/models/strata/case.rb` `base_attributes_for_generator` |
+| Plan does NOT add `case_id` or `belongs_to :case` to the application form (Case stores `application_form_id` for query-based lookup) | `app/models/strata/case.rb` `base_attributes_for_generator` |
 | Plan does NOT re-run `strata:migration` for the application form (already created by `strata:application_form` → `strata:model`) | `lib/generators/strata/application_form/application_form_generator.rb` |
 | Multi-page plan defines a `Strata::Flows::ApplicationFormFlow` subclass and runs `strata:application_form_views <FLOW> <FORM>` | `docs/multi-page-form-flows.md` |
 | Single-page plan uses `bin/rails generate scaffold` or hand-writes the applicant controller | `docs/intake-application-forms.md` |
@@ -243,7 +246,7 @@ Walk any application-form plan against these checks before generating code. Each
 | Model extends `ApplicationRecord` instead of `Strata::ApplicationForm` | Edit model file, re-run tests |
 | Migration missing `status` / `user_id` / `submitted_at` | These are auto-injected by `strata:application_form` base attrs — re-run the AF generator (don't hand-craft `strata:migration`) |
 | Duplicate migration error | Likely re-ran `strata:migration` after `strata:application_form` — delete the duplicate |
-| App form model has spurious `case_id` column or `belongs_to :case` | Wrong direction — Case has `application_form_id` and `belongs_to :application_form`. Drop the column/association from the form |
+| App form model has spurious `case_id` column or `belongs_to :case` | Wrong direction — Case stores `application_form_id` for query-based lookup. Drop the column/association from the form |
 | Looked for BP in `app/models/` and found nothing | BPs live at `app/business_processes/<name>_business_process.rb` |
 | `strata:case` produced views/routes but applicant cannot reach the form | Those are STAFF views under `/staff`. Build the applicant surface separately via `bin/rails generate scaffold` (single page) or flow + `strata:application_form_views` (multi-page) |
 | `strata:application_form_views` errors "flow not found" | The flow class is hand-written — create `app/flows/<program>_application_form_flow.rb` first |

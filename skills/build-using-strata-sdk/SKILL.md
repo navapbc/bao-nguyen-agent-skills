@@ -1,6 +1,6 @@
 ---
 name: build-using-strata-sdk
-description: Adds a Strata SDK application form to a scaffolded Strata Rails app by cloning the SDK repo locally for reference instead of generating agent rules. Use when extending a Strata Rails project with a government intake form via the strata_sdk_rails gem.
+description: Adds a Strata SDK application form to a scaffolded Strata Rails app by cloning the SDK repo locally for reference. Use when extending a Strata Rails project with a government intake form via the strata_sdk_rails gem.
 ---
 
 # Build Using Strata SDK
@@ -9,7 +9,7 @@ description: Adds a Strata SDK application form to a scaffolded Strata Rails app
 
 Extends an existing Strata Rails app (typically scaffolded by `build-strata-rails-app`) with a Strata SDK application form. Clone the SDK locally, plan the form against its actual generators and attribute catalog, drive the SDK's generators to produce model + specs + migration + controller + views, then TDD every change made on top of generator output.
 
-**Scope:** application forms, their associated cases, and the business processes that govern them. Tasks and attachments are surfaced during planning but built elsewhere.
+**Scope:** application forms, their associated cases, and the business processes that govern them. Tasks are surfaced during planning but built elsewhere.
 
 **SDK knowledge** (docs map, generators, domain model, UI surfaces, multi-page flows, Pundit policies, plan validation checklist, pitfalls): [`references/strata-sdk.md`](references/strata-sdk.md). Read it before planning; consult it whenever a question about SDK behavior arises.
 
@@ -98,7 +98,7 @@ Derive `<PROGRAM>` (the bare program name, e.g. `Unemployment`, `Passport`). The
 
 **5b. Attribute selection — propose SDK-supported defaults**
 
-> Each piece of data the form collects is a **Strata attribute** with a typed widget (e.g. `name`, `address`, `tax_id`, `memorable_date`, `email`, `phone`). I'll suggest a starter set based on the SDK's catalog and `<APP_TYPE>`, then we'll refine it together. For fields the SDK doesn't cover, we'll use standard Rails types.
+> Each piece of data the form collects is a **Strata attribute** with a typed widget (e.g. `name`, `address`, `tax_id`, `memorable_date`, `money`). I'll suggest a starter set based on the SDK's catalog and `<APP_TYPE>`, then we'll refine it together. For fields the SDK doesn't cover (such as `email` or `phone`), we'll use standard Rails types.
 
 Propose a starter set from `tmp/strata-sdk/docs/strata-attributes.md`. Common base:
 
@@ -107,8 +107,8 @@ Propose a starter set from `tmp/strata-sdk/docs/strata-attributes.md`. Common ba
 | `name` | `name` | Applicant full name |
 | `birth_date` | `memorable_date` | DOB |
 | `residential_address` | `address` | Mailing/residential |
-| `email` | `email` | Contact |
-| `phone` | `phone` | Contact |
+| `email` | `string` (Rails primitive) | Contact |
+| `phone` | `string` (Rails primitive) | Contact |
 
 Tailor by program (only if SDK supports the type):
 
@@ -138,7 +138,7 @@ Ask:
 
 > **Confirm these validations, or tell me what to add/remove. (yes / edit)**
 
-Save as `<VALIDATIONS>` map (`attr_name: [validation_list]`). TDD in Step 12 drives them.
+Save as `<VALIDATIONS>` map (`attr_name: [validation_list]`). TDD in Step 14 drives them.
 
 **5d. Form layout — single page or multi-page flow**
 
@@ -193,7 +193,6 @@ Save as `<RETURN_BEHAVIOR>`.
 
 **iii.** On submit: create a new case or attach to an existing one? Save `<CASE_TRIGGER>` (`create_new` / `attach_existing`).
 
-**v.** Required attachments? If the SDK exposes an `attachment` attribute, add it; otherwise flag as out-of-scope.
 
 Re-prompt 5b/5c if any answer changes the attribute list.
 
@@ -206,9 +205,9 @@ Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<R
 - `<VALIDATIONS>` table
 - `<FORM_LAYOUT>`, `<ENTRY_POINT>`, `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`
 - `<BUSINESS_PROCESS_NAME>`, `<CASE_NAME>`, `<CASE_TRIGGER>`
-- Generators per artifact: single `strata:case` invocation chains BP + AF + migration; applicant views from hand-written flow + `strata:application_form_views`; applicant controller hand-written or via `bin/rails generate scaffold`; staff dashboard auto-produced by `strata:case`
+- Generators per artifact: `strata:application_form` for the model + migration; applicant controller and views generated separately (before the case); `strata:case` for the case model + staff dashboard + business process. We use a domain-driven philosophy where AF and Case have NO Rails relationships; they link via queries.
 - Pundit policy + spec + per-page system spec for the form (see Section 6 of the SDK reference)
-- Out-of-scope items (tasks, attachments) listed but not built
+- Out-of-scope items (tasks) listed but not built
 
 Tell the user:
 
@@ -263,44 +262,72 @@ find app/models/strata -type f -name "*application_form*.rb" 2>/dev/null
 
 Set `<CASE_EXISTS>`, `<BUSINESS_PROCESS_EXISTS>`, `<FORM_EXISTS>`. If user said something exists but grep finds nothing, stop and re-confirm.
 
-## Step 11: Generate case (chains BP + ApplicationForm + migration)
+## Step 11: Generate Application Form
 
-The SDK's preferred entry point is `strata:case`. Single command, multiple artifacts (model, chained BP, chained AF + migration, staff dashboard).
+We follow a domain-driven philosophy: Application Form and Case models have NO Rails relationships (`belongs_to`/`has_many`). They are linked via queries. The Application Form must be created first.
 
-**11a. Run the case generator:**
+**11a. Run the application form generator:**
 
 ```sh
-bin/rails generate strata:case <PROGRAM> <ATTRS> --business-process <PROGRAM>BusinessProcess --application-form <PROGRAM>ApplicationForm
+bin/rails generate strata:application_form <PROGRAM> <ATTRS>
 ```
 
-Pass any of these to skip chained pieces if `<*_EXISTS>` is true: `--skip-business-process`, `--skip-application-form`.
-
-`<ATTRS>` are the form's strata attributes; the case generator forwards them to the chained `strata:application_form` and migrations are produced via `strata:model`. Case base attrs (`application_form_id:uuid`, `status:integer`, `business_process_current_step:string`, `facts:jsonb`) are auto-injected — do not list them.
-
-If the generator prompts interactively for missing classes, accept (`y`). The `--application-form` and `--business-process` flags pre-fill those names.
-
-Outputs to verify (paths from Section 2 of the SDK reference):
-
-- `app/models/strata/<program>_case.rb` (extends `Strata::Case`)
-- `app/models/strata/<program>_application_form.rb` (extends `Strata::ApplicationForm`)
-- `app/business_processes/<program>_business_process.rb`
-- `app/controllers/<program>_cases_controller.rb` (staff dashboard)
-- `app/views/<program>_cases/{index,show,documents,tasks,notes}.html.erb`
-- New migration(s) under `db/migrate/`
-- Routes under `scope path: "/staff"` block in `config/routes.rb`
-- `config/application.rb` updated with `<PROGRAM>BusinessProcess.start_listening_for_events`
+This produces the model at `app/models/strata/<program>_application_form.rb` and a migration with base attributes (`user_id`, `status`, `submitted_at`).
 
 **11b. Run migrations:** `bin/rails db:migrate`
 
-**11c. Verify:** `make test && make lint`. Any regression → fix before proceeding.
+Migrations must run before generating controller/views — the multi-page views generator (`strata:application_form_views`) `constantize`s the model and inspects `attribute_types` and `columns_hash`, which require the migration to have run.
 
-## Step 12: TDD-strengthen the generated application form model
+**11c. Generate the application form controller and views:**
+
+Follow Step 12 to generate the controller and views for the application form now, before proceeding to the case.
+
+## Step 12: Generate Controller and Views
+
+The controller serves as the endpoints for serving the views for the application form.
+
+**12a. Single-page layout** (when `<FORM_LAYOUT>` is `single`):
+
+```sh
+bin/rails generate scaffold <PROGRAM>ApplicationForm <ATTRS> --skip-migration --model-name=<PROGRAM>ApplicationForm
+```
+
+`--skip-migration` is mandatory — the migration already exists from Step 11.
+
+**12b. Multi-page layout** (when `<FORM_LAYOUT>` is a task map):
+
+1. Hand-write the flow class at `app/flows/<program>_application_form_flow.rb`.
+2. Run the views generator:
+
+   ```sh
+   bin/rails generate strata:application_form_views <PROGRAM>ApplicationFormFlow <PROGRAM>ApplicationForm
+   ```
+
+3. Hand-write the applicant controller (see Section 6 of the SDK reference).
+
+## Step 13: Generate Case
+
+**13a. Run the case generator:**
+
+The SDK's `strata:case` generator produces the case model, staff dashboard, and business process.
+
+```sh
+bin/rails generate strata:case <PROGRAM> --business-process <PROGRAM>BusinessProcess --skip-application-form
+```
+
+Since the Application Form already exists, we use `--skip-application-form`. Case base attrs (`application_form_id:uuid`, `status:integer`, `business_process_current_step:string`, `facts:jsonb`) are auto-injected — do not pass them to the generator. The `application_form_id` is used for query-based lookups, NOT as a Rails relationship.
+
+**13b. Run migrations:** `bin/rails db:migrate`
+
+**13c. Verify:** `make test && make lint`.
+
+## Step 14: TDD-strengthen the generated application form model
 
 The application form model and its baseline spec are generator output. Per [`references/test-driven-development.md`](references/test-driven-development.md), generator output may exist without a failing test first, but **every change from here is test-first**.
 
-**12a. Re-read** Section 3 ("Domain model") of [`references/strata-sdk.md`](references/strata-sdk.md) and `tmp/strata-sdk/app/models/strata/application_form.rb` to confirm what `Strata::ApplicationForm` already provides.
+**14a. Re-read** Section 3 ("Domain model") of [`references/strata-sdk.md`](references/strata-sdk.md) and `tmp/strata-sdk/app/models/strata/application_form.rb` to confirm what `Strata::ApplicationForm` already provides.
 
-**12b. TDD loop** for each behavior the plan requires:
+**14b. TDD loop** for each behavior the plan requires:
 
 1. Open `spec/models/strata/<program>_application_form_spec.rb`.
 2. Add or strengthen an example: each `<ATTRS>` declared with the correct `strata_attribute :name, :type`; each `<VALIDATIONS>` rule fires; submitting transitions `status` to `submitted`; post-submit edits raise.
@@ -311,47 +338,25 @@ The application form model and its baseline spec are generator output. Per [`ref
 
 **Do NOT** add `belongs_to :<case>` to the application form. If the generated model extends `ApplicationRecord` instead of `Strata::ApplicationForm`, fix it inside the TDD loop.
 
-## Step 13: TDD-strengthen the case model and business process
+## Step 15: TDD-strengthen the case model and business process
 
-**13a. Case model** (`app/models/strata/<program>_case.rb`): TDD loop to verify
+**15a. Case model** (`app/models/strata/<program>_case.rb`): TDD loop to verify
 
 - extends `Strata::Case`
-- `belongs_to :application_form` resolves to `<PROGRAM>ApplicationForm`
+- has a query-based lookup method for the application form (e.g., `def application_form; <PROGRAM>ApplicationForm.find(application_form_id); end`)
 - `business_process` class method returns `<PROGRAM>BusinessProcess`
 
-**13b. Business process** (`app/business_processes/<program>_business_process.rb`): TDD loop to define each step from the plan (`applicant_task`, `system_process`, `staff_task`, transitions). Spec → fail → implement → green → lint → commit.
+**15b. Business process** (`app/business_processes/<program>_business_process.rb`): TDD loop to define each step from the plan (`applicant_task`, `system_process`, `staff_task`, transitions). Spec → fail → implement → green → lint → commit.
 
-**13c. Verify:** `make test && make lint` after each commit.
+**15c. Verify:** `make test && make lint` after each commit.
 
-## Step 13.5: Wire Pundit authorization (TDD)
+## Step 16: Wire Pundit authorization (TDD)
 
-**Required before Step 14** — without a policy class, every applicant page raises `Pundit::NotDefinedError`. Follow Section 6 of [`references/strata-sdk.md`](references/strata-sdk.md) for full templates. TDD loops, in order: (1) ensure `pundit` + `pundit-matchers` (`:test`) in Gemfile and `app/policies/application_policy.rb` exists (`bin/rails g pundit:install` if not); (2) write the policy spec (four contexts), watch fail, create `<Program>ApplicationFormPolicy < ApplicationPolicy` with `include Strata::ApplicationFormPolicy`, watch green, lint, commit; (3) write a request spec sweeping every page in `Flows::<PROGRAM>ApplicationFormFlow.generated_routes` plus negative cases (non-owner, unauthenticated, submitted), watch fail, add `before_action :authenticate_user!` and `before_action :load_and_authorize_form, only: Flow.generated_routes` to the applicant controller (where `load_and_authorize_form` calls `authorize(<Program>ApplicationForm.find(params[:id]), :update?)` and assigns the ivar `flow_record` returns), watch green, commit. Single-page: skip the per-page sweep; assert `authorize(form, :update?)` fires on `edit`/`update`.
+**Required before Step 17** — without a policy class, every applicant page raises `Pundit::NotDefinedError`. Follow Section 6 of [`references/strata-sdk.md`](references/strata-sdk.md) for full templates. TDD loops, in order: (1) ensure `pundit` + `pundit-matchers` (`:test`) in Gemfile and `app/policies/application_policy.rb` exists (`bin/rails g pundit:install` if not); (2) write the policy spec (four contexts), watch fail, create `<Program>ApplicationFormPolicy < ApplicationPolicy` with `include Strata::ApplicationFormPolicy`, watch green, lint, commit; (3) write a request spec sweeping every page in `Flows::<PROGRAM>ApplicationFormFlow.generated_routes` plus negative cases (non-owner, unauthenticated, submitted), watch fail, add `before_action :authenticate_user!` and `before_action :load_and_authorize_form, only: Flow.generated_routes` to the applicant controller (where `load_and_authorize_form` calls `authorize(<Program>ApplicationForm.find(params[:id]), :update?)` and assigns the ivar `flow_record` returns), watch green, commit. Single-page: skip the per-page sweep; assert `authorize(form, :update?)` fires on `edit`/`update`.
 
-## Step 14: Build the applicant-facing form UI
+## Step 17: TDD-strengthen the applicant-facing form UI
 
-Step 11 produced the **staff dashboard** under `/staff`. This step builds the **applicant-facing** form — a separate UI surface (see Section 4 of the SDK reference). The SDK does not generate the applicant controller; it provides view scaffolding only via `strata:application_form_views` (which requires a flow class).
-
-**14a. Single-page layout** (when `<FORM_LAYOUT>` is `single`):
-
-```sh
-bin/rails generate scaffold <PROGRAM>ApplicationForm <ATTRS> --skip-migration --model-name=<PROGRAM>ApplicationForm
-```
-
-`--skip-migration` is mandatory — the migration already exists from Step 11. TDD-strengthen the generated controller/views/routes per 14c.
-
-**14b. Multi-page layout** (when `<FORM_LAYOUT>` is a task map):
-
-1. Hand-write the flow class at `app/flows/<program>_application_form_flow.rb` — `include Strata::Flows::ApplicationFormFlow`, then a `task :<name> do ... question_page :<page> end` block per task per `<FORM_LAYOUT>`. See `tmp/strata-sdk/docs/multi-page-form-flows.md`. TDD: spec the flow exposes the expected tasks/pages → fail → implement → green → lint → commit.
-
-2. Run the views generator:
-
-   ```sh
-   bin/rails generate strata:application_form_views <PROGRAM>ApplicationFormFlow <PROGRAM>ApplicationForm
-   ```
-
-3. Hand-write the applicant controller (see Section 6 of the SDK reference for the wiring template). Drive every action via TDD.
-
-**14c. TDD around the applicant UI**, one behavior at a time:
+Step 12 produced the applicant-facing form scaffolding. This step drives every UI behavior via TDD.
 
 - `GET` form entry → 200 for authed user, redirect otherwise
 - `POST` valid → record created, `status: 'in_progress'`, `user_id` populated
@@ -362,11 +367,11 @@ bin/rails generate scaffold <PROGRAM>ApplicationForm <ATTRS> --skip-migration --
 - `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`, `<ENTRY_POINT>` match the chosen options
 - **Attribute coverage — single-page:** for each attribute in `<ATTRS>`, a system spec asserts an input field with matching name/label exists in `GET <form>/new`. If a generated spec doesn't cover an attribute, add an example and watch it fail before editing the view.
 - **Attribute coverage — multi-page:** per task, system spec asserts only that task's question_pages render. Separate spec confirms union of all tasks equals `<ATTRS>`.
-- **Multi-page only — per-page navigation system spec.** For each page in `Flow.generated_routes`: sign in as owner, GET `edit_<page>` → 200 (no Pundit errors), correct fields render, submit valid input → redirect to next page (or `end_path` on last). Negative cases: non-owner → `NotAuthorizedError`; unauthenticated → sign-in redirect; submitted form → forbidden. Also assert back/next navigation and that skipping a required page redirects via `enforce_task_dependencies`. Pundit errors → fix in Step 13.5 (never per-page policy methods).
+- **Multi-page only — per-page navigation system spec.** For each page in `Flow.generated_routes`: sign in as owner, GET `edit_<page>` → 200 (no Pundit errors), correct fields render, submit valid input → redirect to next page (or `end_path` on last). Negative cases: non-owner → `NotAuthorizedError`; unauthenticated → sign-in redirect; submitted form → forbidden. Also assert back/next navigation and that skipping a required page redirects via `enforce_task_dependencies`. Pundit errors → fix in Step 16 (never per-page policy methods).
 
 If a generated spec passes immediately without any code edit, the spec is too weak — strengthen it before moving on. Show route diffs and view edits to the user before saving.
 
-## Step 15: Verify
+## Step 18: Verify
 
 ```sh
 make lint
@@ -375,7 +380,7 @@ make test
 
 Both must pass. If either fails, stop and report.
 
-## Step 16: Report
+## Step 19: Report
 
 Confirm `make lint` and `make test` both passed in the current message before reporting — see [`references/verification.md`](references/verification.md).
 
