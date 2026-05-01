@@ -128,7 +128,7 @@ Save `<ATTRS>` as `name:type` pairs separated by spaces. Note primitive-type att
 
 Propose defaults:
 
-- Contact/identity (`name`, `email`, `phone`, `ssn`/`tax_id`) → `presence: true`
+- Contact/identity (`name`, `email`, `phone`) → `presence: true`
 - `email` → format
 - `phone` → format
 - Numeric (income, household size) → `numericality: { greater_than: 0 }`
@@ -192,8 +192,6 @@ Save as `<RETURN_BEHAVIOR>`.
 **ii.** Check `app/models/strata/` for an existing case. If found, confirm; else default to `<PROGRAM>Case`. Save `<CASE_NAME>`, `<CASE_EXISTS>`.
 
 **iii.** On submit: create a new case or attach to an existing one? Save `<CASE_TRIGGER>` (`create_new` / `attach_existing`).
-
-**iv.** Does the program require an SSN? If so, add `ssn:tax_id` to `<ATTRS>` and re-confirm 5b/5c.
 
 **v.** Required attachments? If the SDK exposes an `attachment` attribute, add it; otherwise flag as out-of-scope.
 
