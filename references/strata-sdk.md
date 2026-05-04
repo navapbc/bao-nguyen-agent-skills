@@ -15,7 +15,6 @@ ls <SDK_GEM_PATH>/docs/
 | Application form guide | `<SDK_GEM_PATH>/docs/intake-application-forms.md` |
 | Strata attribute types | `<SDK_GEM_PATH>/docs/strata-attributes.md` |
 | Generators overview | `<SDK_GEM_PATH>/docs/generators.md` |
-| Multi-page form flows | `<SDK_GEM_PATH>/docs/multi-page-form-flows.md` |
 | Case management business process | `<SDK_GEM_PATH>/docs/case-management-business-process.md` |
 | Authorization (Pundit) | `<SDK_GEM_PATH>/docs/authorization.md` |
 
@@ -27,18 +26,17 @@ If a doc is missing, the gem version may be outdated — update the gem or pin t
 ls <SDK_GEM_PATH>/lib/generators/strata/
 ```
 
-Expected: `application_form`, `application_form_views`, `business_process`, `case`, `determination`, `income_records_migration`, `migration`, `model`, `staff`, `task`. Read each `USAGE` and `*_generator.rb`. Option flags are **hyphenated** (`--business-process`, `--application-form`, `--skip-*`) — the USAGE docs sometimes show underscores, but the underscored form is silently ignored.
+Expected: `application_form`, `business_process`, `case`, `determination`, `income_records_migration`, `migration`, `model`, `staff`, `task`. Read each `USAGE` and `*_generator.rb`. Option flags are **hyphenated** (`--business-process`, `--application-form`, `--skip-*`) — the USAGE docs sometimes show underscores, but the underscored form is silently ignored.
 
 | Generator | What it produces | Notes |
 |-----------|------------------|-------|
 | `strata:application_form` | Model + auto-chains `strata:model` (writes migration with base attrs `user_id:uuid`, `status:integer`, `submitted_at:datetime`) | Auto-suffixes `ApplicationForm`. **No separate migration step needed.** |
 | `strata:case` | Model at `app/models/strata/<name>_case.rb` + **staff** controller `app/controllers/<cases>_controller.rb` + staff views (`index`, `show`, `documents`, `tasks`, `notes`) + routes scoped under `/staff` + locales | Auto-suffixes `Case`. Prompts to chain BP and AF. Case has `application_form_id:uuid` attribute for query-based lookups to the application form (NOT a Rails relationship). |
 | `strata:business_process` | `app/business_processes/<name>_business_process.rb` (NOT `app/models/`) + edits `config/application.rb` to register event listening | |
-| `strata:application_form_views` | Applicant views from a `Strata::Flows::ApplicationFormFlow` subclass | Requires the flow class to exist first (no generator for the flow class itself). |
 | `strata:migration` | Ad-hoc migrations | **Do NOT** re-run for the application form — `strata:application_form` already chains it. |
 | `strata:task`, `strata:staff`, `strata:model`, `strata:determination`, `strata:income_records_migration` | Specialized | Mostly out of scope for application-form workflows. |
 
-**Generation order (per `docs/generators.md`):** `strata:application_form` first → `strata:case` → `strata:business_process` → optional `strata:task` → define flow class → `strata:application_form_views`.
+**Generation order (per `docs/generators.md`):** `strata:application_form` first → `strata:case` → `strata:business_process` → optional `strata:task`.
 
 **Every code-producing step should prefer an SDK generator** over hand-writing files when a matching generator exists.
 
@@ -73,32 +71,9 @@ See `<SDK_GEM_PATH>/docs/strata-attributes.md` for the full catalog. Strata type
 | Surface | Source | URL scope | Audience |
 |---------|--------|-----------|----------|
 | **Staff dashboard** | Output of `strata:case` (controller + views + routes + locales) | `/staff` | Caseworkers |
-| **Applicant form** | Hand-written controller + (`Strata::Flows::ApplicationFormFlow` subclass + `strata:application_form_views`) OR `bin/rails generate scaffold` | App-defined | Applicants |
+| **Applicant form** | `bin/rails generate scaffold` or hand-written controller | App-defined | Applicants |
 
 These are NOT interchangeable. `strata:case` produces staff routes only — applicants cannot reach the form through them. Build the applicant surface separately.
-
-## 5. Multi-page form flows
-
-The SDK's preferred multi-page pattern is `Strata::Flows::ApplicationFormFlow` — a DSL of `task :group { question_page :field }` that drives auto-generated routes, controller actions, and views (via `strata:application_form_views`). Default guidance: one question per page, group only where it improves UX (e.g. name + birth date together).
-
-The flow class is hand-written (no generator). After defining it, run:
-
-```sh
-bin/rails generate strata:application_form_views <Program>ApplicationFormFlow <Program>ApplicationForm
-```
-
-Outputs: `app/views/<program>_application_forms/edit_<page>.html.erb` per question page, `app/views/layouts/<program>_application_form.html.erb`, `config/locales/<program>_application_forms/en.yml`.
-
-### Flow controller concern
-
-`Strata::Flows::ApplicationFormController` (`app/models/strata/flows/application_form_controller.rb`) provides:
-
-- `before_action :set_flow` — instantiates `@flow = flow_class.new(flow_record)`
-- `before_action :set_flow_task, only: flow_class.generated_routes`
-- `before_action :enforce_task_dependencies, only: flow_class.generated_routes` — redirects to `start_path` if a page's task has unmet dependencies
-- `define_method` for each page's `edit_<page>` and `update_<page>` action
-
-The concern does NOT call `authorize`. The consuming app must wire authorization itself (see Section 6).
 
 ## 6. Authorization (Pundit)
 
@@ -116,9 +91,7 @@ The SDK ships `Strata::ApplicationFormPolicy` (an *include-able module*, not a c
 
 The base `ApplicationPolicy#initialize` raises `Pundit::NotAuthorizedError` if `user` is `nil`.
 
-**There are NO per-page policy methods.** Every question page in a multi-page flow uses `update?`. Never invent `edit_<page>?` methods — the flow controller never calls them.
-
-### Required artifacts (test-first)
+#### Required artifacts (test-first)
 
 #### Policy class
 
@@ -131,7 +104,7 @@ end
 
 If `app/policies/application_policy.rb` does not exist, run `bin/rails g pundit:install` first.
 
-#### Policy spec — model on the SDK reference
+#### Policy spec
 
 Mirror `<SDK_GEM_PATH>/spec/policies/strata/application_form_policy_spec.rb`:
 
@@ -177,16 +150,8 @@ end
 
 ```ruby
 class <Program>ApplicationFormsController < ApplicationController
-  include Strata::Flows::ApplicationFormController
-  flow Flows::<Program>ApplicationFormFlow
-
   before_action :authenticate_user!
-  before_action :load_and_authorize_form,
-                only: Flows::<Program>ApplicationFormFlow.generated_routes
-
-  def flow_record
-    @<program>_application_form
-  end
+  before_action :load_and_authorize_form, only: [:edit, :update, :show]
 
   private
 
@@ -199,27 +164,9 @@ class <Program>ApplicationFormsController < ApplicationController
 end
 ```
 
-Use `Flow.generated_routes` for the `only:` filter — never hand-write the page list (it drifts when pages are added/removed).
+#### Request spec
 
-#### Per-page system spec (multi-page only)
-
-For every question page in `<FORM_LAYOUT>`, the spec must:
-
-1. Sign in as the owning user
-2. Visit `<form>/:id/edit_<page_name>`
-3. Assert response is 200 (no `Pundit::NotDefinedError`, no `Pundit::NotAuthorizedError`)
-4. Assert that page's expected fields render and no other page's fields appear
-5. Submit valid input and assert redirect to next page (or `end_path` on the last page)
-
-A separate context covers negative paths:
-
-- Non-owner GET → `Pundit::NotAuthorizedError`
-- Unauthenticated GET → redirect to sign-in
-- Owner on submitted form GET edit page → forbidden (`update?` is false because `in_progress?` is false)
-
-If any page raises a Pundit error, fix the policy class or controller wiring — **never** add per-page policy methods.
-
-For single-page layout: write one request spec asserting `authorize(form, :update?)` is invoked (assert non-owner gets `NotAuthorizedError` on `edit`/`update`).
+Write one request spec asserting `authorize(form, :update?)` is invoked (assert non-owner gets `NotAuthorizedError` on `edit`/`update`).
 
 ## 7. Plan validation checklist
 
@@ -231,12 +178,11 @@ Walk any application-form plan against these checks before generating code. Each
 | Form model extends `Strata::ApplicationForm`; case model extends `Strata::Case` | `<SDK_GEM_PATH>/docs/intake-application-forms.md`, `<SDK_GEM_PATH>/docs/case-management-business-process.md` |
 | Plan does NOT add `case_id` or `belongs_to :case` to the application form (Case stores `application_form_id` for query-based lookup) | `<SDK_GEM_PATH>/app/models/strata/case.rb` `base_attributes_for_generator` |
 | Plan does NOT re-run `strata:migration` for the application form (already created by `strata:application_form` → `strata:model`) | `<SDK_GEM_PATH>/lib/generators/strata/application_form/application_form_generator.rb` |
-| Multi-page plan defines a `Strata::Flows::ApplicationFormFlow` subclass and runs `strata:application_form_views <FLOW> <FORM>` | `<SDK_GEM_PATH>/docs/multi-page-form-flows.md` |
 | Single-page plan uses `bin/rails generate scaffold` or hand-writes the applicant controller | `<SDK_GEM_PATH>/docs/intake-application-forms.md` |
 | Plan distinguishes staff dashboard (from `strata:case`, `/staff` scope) from applicant form | `<SDK_GEM_PATH>/lib/generators/strata/case/case_generator.rb` |
 | Validations expressible as Rails model validations | Rails docs |
 | BP file path is `app/business_processes/`, NOT `app/models/` | `<SDK_GEM_PATH>/lib/generators/strata/business_process/business_process_generator.rb` |
-| Plan creates `app/policies/<program>_application_form_policy.rb` (`include Strata::ApplicationFormPolicy`), policy spec, and per-page system spec; `pundit-matchers` in `:test`; NO per-page policy methods | `<SDK_GEM_PATH>/docs/authorization.md`, `<SDK_GEM_PATH>/app/models/strata/flows/application_form_controller.rb`, Section 6 above |
+| Plan creates `app/policies/<program>_application_form_policy.rb` (`include Strata::ApplicationFormPolicy`), policy spec, and request spec; `pundit-matchers` in `:test` | `<SDK_GEM_PATH>/docs/authorization.md`, Section 6 above |
 
 ## 8. Common SDK pitfalls
 
@@ -248,11 +194,8 @@ Walk any application-form plan against these checks before generating code. Each
 | Duplicate migration error | Likely re-ran `strata:migration` after `strata:application_form` — delete the duplicate |
 | App form model has spurious `case_id` column or `belongs_to :case` | Wrong direction — Case stores `application_form_id` for query-based lookup. Drop the column/association from the form |
 | Looked for BP in `app/models/` and found nothing | BPs live at `app/business_processes/<name>_business_process.rb` |
-| `strata:case` produced views/routes but applicant cannot reach the form | Those are STAFF views under `/staff`. Build the applicant surface separately via `bin/rails generate scaffold` (single page) or flow + `strata:application_form_views` (multi-page) |
-| `strata:application_form_views` errors "flow not found" | The flow class is hand-written — create `app/flows/<program>_application_form_flow.rb` first |
+| `strata:case` produced views/routes but applicant cannot reach the form | Those are STAFF views under `/staff`. Build the applicant surface separately via `bin/rails generate scaffold` |
 | `--application_form` flag (underscore) ignored | Use `--application-form` (hyphen). The USAGE doc shows underscore due to a typo |
-| `Pundit::NotDefinedError` on every applicant page, or tempted to write `edit_<page>?` policy methods | Policy class missing or misapplied — create `<Program>ApplicationFormPolicy` (one `update?` gates every page; never per-page methods) |
-| Per-page spec passes some pages, errors on others | `before_action only:` likely a hand-written page list — replace with `Flow.generated_routes` |
-| Policy spec fails with `undefined method permit_all_actions` | `pundit-matchers` not in `:test` group — add to Gemfile, `bundle install` |
+| `Pundit::NotDefinedError` on every applicant page | Policy class missing or misapplied — create `<Program>ApplicationFormPolicy` |
 | Owner gets 403 on submitted form edit page | Working as intended — `update?` checks `in_progress?`. Route post-submit traffic to a read-only `review` action |
 | Every page 500s with `NoMethodError: authorize` | Controller missing `include Pundit::Authorization` — usually inherited via `ApplicationController`, verify host app |

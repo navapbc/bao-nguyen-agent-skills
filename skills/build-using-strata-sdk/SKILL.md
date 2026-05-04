@@ -11,7 +11,7 @@ Extends an existing Strata Rails app (typically scaffolded by `build-strata-rail
 
 **Scope:** application forms, their associated cases, and the business processes that govern them. Tasks are surfaced during planning but built elsewhere.
 
-**SDK knowledge** (docs map, generators, domain model, UI surfaces, multi-page flows, Pundit policies, plan validation checklist, pitfalls): [`references/strata-sdk.md`](references/strata-sdk.md). Read it before planning; consult it whenever a question about SDK behavior arises.
+**SDK knowledge** (docs map, generators, domain model, UI surfaces, Pundit policies, plan validation checklist, pitfalls): [`references/strata-sdk.md`](references/strata-sdk.md). Read it before planning; consult it whenever a question about SDK behavior arises.
 
 **TDD is mandatory** for every change made on top of generator output: see [`references/test-driven-development.md`](references/test-driven-development.md).
 
@@ -111,7 +111,7 @@ If either listing is empty or the path doesn't exist, `bundle install` may have 
 
 ## Step 5: Read the SDK reference
 
-Open [`references/strata-sdk.md`](references/strata-sdk.md) and read sections 1–6 end-to-end. That file is the single source of truth for: docs catalog, generators inventory, domain model (relations, status lifecycle, attribute types), the two UI surfaces (staff vs applicant), multi-page flow controller, and Pundit policies.
+Open [`references/strata-sdk.md`](references/strata-sdk.md) and read sections 1–6 end-to-end. That file is the single source of truth for: docs catalog, generators inventory, domain model (relations, status lifecycle, attribute types), the two UI surfaces (staff vs applicant), and Pundit policies.
 
 Verify the installed gem matches what the reference describes:
 
@@ -178,16 +178,11 @@ Ask:
 
 Save as `<VALIDATIONS>` map (`attr_name: [validation_list]`). TDD in Step 13 drives them.
 
-**6d. Form layout — single page or multi-page flow**
+**6d. Form layout**
 
-> Application forms can be a single scrollable page or split into multiple pages. The SDK's preferred multi-page pattern is `Strata::Flows::ApplicationFormFlow` (DSL of `task :group { question_page :field }`), with one question per page by default. **How should this form work?**
->
-> 1. Single page — all fields on one screen, one Submit button (use `bin/rails generate scaffold`)
-> 2. Multi-page flow — fields split into tasks/pages using the flow DSL + `strata:application_form_views`
+> Application forms in this skill are built as a **single scrollable page** with one Submit button. This ensures a simple, robust implementation that matches our current documentation coverage. (Multi-page flows are out of scope for this skill.)
 
-If multi-page: ask number of tasks, task names, and which `<ATTRS>` are question pages under each task. Allow grouped pages where it improves UX.
-
-Save as `<FORM_LAYOUT>` — either `single` or an ordered map `task_name: [question_pages]`.
+Save `<FORM_LAYOUT>` as `single`.
 
 **6e. Entry point**
 
@@ -244,7 +239,7 @@ Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<R
 - `<FORM_LAYOUT>`, `<ENTRY_POINT>`, `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`
 - `<BUSINESS_PROCESS_NAME>`, `<CASE_NAME>`, `<CASE_TRIGGER>`
 - Generators per artifact: `strata:application_form` for the model + migration; applicant controller and views generated separately (before the case); `strata:case` for the case model + staff dashboard + business process. We use a domain-driven philosophy where AF and Case have NO Rails relationships; they link via queries.
-- Pundit policy + spec + per-page system spec for the form (see Section 6 of the SDK reference)
+- Pundit policy + spec + request spec for the form (see Section 6 of the SDK reference)
 - Out-of-scope items (tasks) listed but not built
 
 Tell the user:
@@ -281,34 +276,19 @@ This produces the model at `app/models/strata/<program>_application_form.rb` and
 
 **10b. Run migrations:** `bin/rails db:migrate`
 
-Migrations must run before generating controller/views — the multi-page views generator (`strata:application_form_views`) `constantize`s the model and inspects `attribute_types` and `columns_hash`, which require the migration to have run.
+Migrations must run before generating controller/views.
 
 **10c. Generate the application form controller and views:**
 
 Follow Step 11 to generate the controller and views for the application form now, before proceeding to the case.
 
-## Step 11: Generate Controller and Views
-
-The controller serves as the endpoints for serving the views for the application form.
-
-**11a. Single-page layout** (when `<FORM_LAYOUT>` is `single`):
+**11a. Generate the controller and views:**
 
 ```sh
 bin/rails generate scaffold <PROGRAM>ApplicationForm <ATTRS> --skip-migration --model-name=<PROGRAM>ApplicationForm
 ```
 
 `--skip-migration` is mandatory — the migration already exists from Step 10.
-
-**11b. Multi-page layout** (when `<FORM_LAYOUT>` is a task map):
-
-1. Hand-write the flow class at `app/flows/<program>_application_form_flow.rb`.
-2. Run the views generator:
-
-   ```sh
-   bin/rails generate strata:application_form_views <PROGRAM>ApplicationFormFlow <PROGRAM>ApplicationForm
-   ```
-
-3. Hand-write the applicant controller (see Section 6 of the SDK reference).
 
 ## Step 12: Generate Case
 
@@ -357,7 +337,7 @@ The application form model and its baseline spec are generator output. Per [`ref
 
 ## Step 15: Wire Pundit authorization (TDD)
 
-**Required before Step 16** — without a policy class, every applicant page raises `Pundit::NotDefinedError`. Follow Section 6 of [`references/strata-sdk.md`](references/strata-sdk.md) for full templates. TDD loops, in order: (1) ensure `pundit` + `pundit-matchers` (`:test`) in Gemfile and `app/policies/application_policy.rb` exists (`bin/rails g pundit:install` if not); (2) write the policy spec (four contexts), watch fail, create `<Program>ApplicationFormPolicy < ApplicationPolicy` with `include Strata::ApplicationFormPolicy`, watch green, lint, commit; (3) write a request spec sweeping every page in `Flows::<PROGRAM>ApplicationFormFlow.generated_routes` plus negative cases (non-owner, unauthenticated, submitted), watch fail, add `before_action :authenticate_user!` and `before_action :load_and_authorize_form, only: Flow.generated_routes` to the applicant controller (where `load_and_authorize_form` calls `authorize(<Program>ApplicationForm.find(params[:id]), :update?)` and assigns the ivar `flow_record` returns), watch green, commit. Single-page: skip the per-page sweep; assert `authorize(form, :update?)` fires on `edit`/`update`.
+**Required before Step 16** — without a policy class, every applicant page raises `Pundit::NotDefinedError`. Follow Section 6 of [`references/strata-sdk.md`](references/strata-sdk.md) for full templates. TDD loops, in order: (1) ensure `pundit` + `pundit-matchers` (`:test`) in Gemfile and `app/policies/application_policy.rb` exists (`bin/rails g pundit:install` if not); (2) write the policy spec (four contexts), watch fail, create `<Program>ApplicationFormPolicy < ApplicationPolicy` with `include Strata::ApplicationFormPolicy`, watch green, lint, commit; (3) write a request spec asserting `authorize(form, :update?)` fires on `edit`/`update`. Negative cases: non-owner, unauthenticated, submitted.
 
 ## Step 16: TDD-strengthen the applicant-facing form UI
 
@@ -370,9 +350,7 @@ Step 11 produced the applicant-facing form scaffolding. This step drives every U
 - Submit action → `status` transitions to `submitted`, `submitted_at` set
 - Post-submit edit attempt → blocked by `prevent_changes_if_submitted`
 - `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`, `<ENTRY_POINT>` match the chosen options
-- **Attribute coverage — single-page:** for each attribute in `<ATTRS>`, a system spec asserts an input field with matching name/label exists in `GET <form>/new`. If a generated spec doesn't cover an attribute, add an example and watch it fail before editing the view.
-- **Attribute coverage — multi-page:** per task, system spec asserts only that task's question_pages render. Separate spec confirms union of all tasks equals `<ATTRS>`.
-- **Multi-page only — per-page navigation system spec.** For each page in `Flow.generated_routes`: sign in as owner, GET `edit_<page>` → 200 (no Pundit errors), correct fields render, submit valid input → redirect to next page (or `end_path` on last). Negative cases: non-owner → `NotAuthorizedError`; unauthenticated → sign-in redirect; submitted form → forbidden. Also assert back/next navigation and that skipping a required page redirects via `enforce_task_dependencies`. Pundit errors → fix in Step 15 (never per-page policy methods).
+- **Attribute coverage:** for each attribute in `<ATTRS>`, a system spec asserts an input field with matching name/label exists in `GET <form>/new`. If a generated spec doesn't cover an attribute, add an example and watch it fail before editing the view.
 
 If a generated spec passes immediately without any code edit, the spec is too weak — strengthen it before moving on. Show route diffs and view edits to the user before saving.
 
@@ -389,7 +367,7 @@ Both must pass. If either fails, stop and report.
 
 Confirm `make lint` and `make test` both passed in the current message before reporting — see [`references/verification.md`](references/verification.md).
 
-> **Application form ready.** Run `make start-container` and visit the entry point. Application form: `app/models/strata/<program>_application_form.rb`. Case: `app/models/strata/<program>_case.rb`. BP: `app/business_processes/<program>_business_process.rb`. Policy: `app/policies/<program>_application_form_policy.rb` (spec covers the form; per-page system spec covers every question page). Staff dashboard: `/staff/<program>_cases`. Applicant entry: per `<ENTRY_POINT>`. Plan: `docs/<app-type>-application-form-plan.md`. SDK reference: [`references/strata-sdk.md`](references/strata-sdk.md).
+> **Application form ready.** Run `make start-container` and visit the entry point. Application form: `app/models/strata/<program>_application_form.rb`. Case: `app/models/strata/<program>_case.rb`. BP: `app/business_processes/<program>_business_process.rb`. Policy: `app/policies/<program>_application_form_policy.rb`. Staff dashboard: `/staff/<program>_cases`. Applicant entry: per `<ENTRY_POINT>`. Plan: `docs/<app-type>-application-form-plan.md`. SDK reference: [`references/strata-sdk.md`](references/strata-sdk.md).
 
 ## Common skill-procedure pitfalls
 
