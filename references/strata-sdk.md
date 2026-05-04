@@ -1,30 +1,30 @@
 # Strata SDK Reference
 
-Authoritative knowledge of the Strata SDK Rails engine: docs, generators, models, UI surfaces, authorization, and pitfalls. Skills that touch the SDK should read this **before** planning, generating code, or answering SDK questions. Trust the SDK clone over this file when they disagree — re-read the relevant doc and update this file.
+Authoritative knowledge of the Strata SDK Rails engine: docs, generators, models, UI surfaces, authorization, and pitfalls. Skills that touch the SDK should read this **before** planning, generating code, or answering SDK questions. Trust the installed gem's files over this file when they disagree — re-read the relevant doc and update this file.
 
-The SDK lives at `https://github.com/navapbc/strata-sdk-rails` (locally cloned to `tmp/strata-sdk/` by skills that use it). The repo is also called `flex-sdk` upstream — both URLs resolve.
+The SDK lives at `https://github.com/navapbc/strata-sdk-rails` and is installed as a gem via Bundler. Run `bundle show strata` to find the local install path (`<SDK_GEM_PATH>`). The repo is also called `flex-sdk` upstream — both URLs resolve.
 
 ## 1. Docs catalog
 
 ```sh
-ls tmp/strata-sdk/docs/
+ls <SDK_GEM_PATH>/docs/
 ```
 
 | Topic | Path |
 |-------|------|
-| Application form guide | `tmp/strata-sdk/docs/intake-application-forms.md` |
-| Strata attribute types | `tmp/strata-sdk/docs/strata-attributes.md` |
-| Generators overview | `tmp/strata-sdk/docs/generators.md` |
-| Multi-page form flows | `tmp/strata-sdk/docs/multi-page-form-flows.md` |
-| Case management business process | `tmp/strata-sdk/docs/case-management-business-process.md` |
-| Authorization (Pundit) | `tmp/strata-sdk/docs/authorization.md` |
+| Application form guide | `<SDK_GEM_PATH>/docs/intake-application-forms.md` |
+| Strata attribute types | `<SDK_GEM_PATH>/docs/strata-attributes.md` |
+| Generators overview | `<SDK_GEM_PATH>/docs/generators.md` |
+| Multi-page form flows | `<SDK_GEM_PATH>/docs/multi-page-form-flows.md` |
+| Case management business process | `<SDK_GEM_PATH>/docs/case-management-business-process.md` |
+| Authorization (Pundit) | `<SDK_GEM_PATH>/docs/authorization.md` |
 
-If a doc is missing, the clone is incomplete — re-clone or pin to a tag with the expected layout.
+If a doc is missing, the gem version may be outdated — update the gem or pin to a version with the expected layout.
 
 ## 2. Generators inventory
 
 ```sh
-ls tmp/strata-sdk/lib/generators/strata/
+ls <SDK_GEM_PATH>/lib/generators/strata/
 ```
 
 Expected: `application_form`, `application_form_views`, `business_process`, `case`, `determination`, `income_records_migration`, `migration`, `model`, `staff`, `task`. Read each `USAGE` and `*_generator.rb`. Option flags are **hyphenated** (`--business-process`, `--application-form`, `--skip-*`) — the USAGE docs sometimes show underscores, but the underscored form is silently ignored.
@@ -66,7 +66,7 @@ Expected: `application_form`, `application_form_views`, `business_process`, `cas
 
 ### Attribute types
 
-See `tmp/strata-sdk/docs/strata-attributes.md` for the full catalog. Strata types: `name`, `address`, `tax_id`, `memorable_date`, `money`, `us_date`, `year_month`, `year_quarter`, `array`, `range`. Common fields like `email` and `phone` are NOT Strata types — use Rails primitives (`:string`) for them. Fall back to Rails primitives (`string`, `integer`, `boolean`, `date`, `datetime`, `decimal`, `text`) for any fields the SDK doesn't model — primitive fields won't get a Strata widget and need a plain form field in the view.
+See `<SDK_GEM_PATH>/docs/strata-attributes.md` for the full catalog. Strata types: `name`, `address`, `tax_id`, `memorable_date`, `money`, `us_date`, `year_month`, `year_quarter`, `array`, `range`. Common fields like `email` and `phone` are NOT Strata types — use Rails primitives (`:string`) for them. Fall back to Rails primitives (`string`, `integer`, `boolean`, `date`, `datetime`, `decimal`, `text`) for any fields the SDK doesn't model — primitive fields won't get a Strata widget and need a plain form field in the view.
 
 ## 4. Two distinct UI surfaces
 
@@ -133,7 +133,7 @@ If `app/policies/application_policy.rb` does not exist, run `bin/rails g pundit:
 
 #### Policy spec — model on the SDK reference
 
-Mirror `tmp/strata-sdk/spec/policies/strata/application_form_policy_spec.rb`:
+Mirror `<SDK_GEM_PATH>/spec/policies/strata/application_form_policy_spec.rb`:
 
 ```ruby
 require 'rails_helper'
@@ -223,20 +223,20 @@ For single-page layout: write one request spec asserting `authorize(form, :updat
 
 ## 7. Plan validation checklist
 
-Walk any application-form plan against these checks before generating code. Each row cites the source-of-truth file inside `tmp/strata-sdk/`.
+Walk any application-form plan against these checks before generating code. Each row cites the source-of-truth file inside `<SDK_GEM_PATH>/`.
 
 | Check | Source of truth |
 |-------|-----------------|
-| Every attribute's Strata type exists (Rails primitives exempt) | `docs/strata-attributes.md` |
-| Form model extends `Strata::ApplicationForm`; case model extends `Strata::Case` | `docs/intake-application-forms.md`, `docs/case-management-business-process.md` |
-| Plan does NOT add `case_id` or `belongs_to :case` to the application form (Case stores `application_form_id` for query-based lookup) | `app/models/strata/case.rb` `base_attributes_for_generator` |
-| Plan does NOT re-run `strata:migration` for the application form (already created by `strata:application_form` → `strata:model`) | `lib/generators/strata/application_form/application_form_generator.rb` |
-| Multi-page plan defines a `Strata::Flows::ApplicationFormFlow` subclass and runs `strata:application_form_views <FLOW> <FORM>` | `docs/multi-page-form-flows.md` |
-| Single-page plan uses `bin/rails generate scaffold` or hand-writes the applicant controller | `docs/intake-application-forms.md` |
-| Plan distinguishes staff dashboard (from `strata:case`, `/staff` scope) from applicant form | `lib/generators/strata/case/case_generator.rb` |
+| Every attribute's Strata type exists (Rails primitives exempt) | `<SDK_GEM_PATH>/docs/strata-attributes.md` |
+| Form model extends `Strata::ApplicationForm`; case model extends `Strata::Case` | `<SDK_GEM_PATH>/docs/intake-application-forms.md`, `<SDK_GEM_PATH>/docs/case-management-business-process.md` |
+| Plan does NOT add `case_id` or `belongs_to :case` to the application form (Case stores `application_form_id` for query-based lookup) | `<SDK_GEM_PATH>/app/models/strata/case.rb` `base_attributes_for_generator` |
+| Plan does NOT re-run `strata:migration` for the application form (already created by `strata:application_form` → `strata:model`) | `<SDK_GEM_PATH>/lib/generators/strata/application_form/application_form_generator.rb` |
+| Multi-page plan defines a `Strata::Flows::ApplicationFormFlow` subclass and runs `strata:application_form_views <FLOW> <FORM>` | `<SDK_GEM_PATH>/docs/multi-page-form-flows.md` |
+| Single-page plan uses `bin/rails generate scaffold` or hand-writes the applicant controller | `<SDK_GEM_PATH>/docs/intake-application-forms.md` |
+| Plan distinguishes staff dashboard (from `strata:case`, `/staff` scope) from applicant form | `<SDK_GEM_PATH>/lib/generators/strata/case/case_generator.rb` |
 | Validations expressible as Rails model validations | Rails docs |
-| BP file path is `app/business_processes/`, NOT `app/models/` | `lib/generators/strata/business_process/business_process_generator.rb` |
-| Plan creates `app/policies/<program>_application_form_policy.rb` (`include Strata::ApplicationFormPolicy`), policy spec, and per-page system spec; `pundit-matchers` in `:test`; NO per-page policy methods | `docs/authorization.md`, `app/models/strata/flows/application_form_controller.rb`, Section 6 above |
+| BP file path is `app/business_processes/`, NOT `app/models/` | `<SDK_GEM_PATH>/lib/generators/strata/business_process/business_process_generator.rb` |
+| Plan creates `app/policies/<program>_application_form_policy.rb` (`include Strata::ApplicationFormPolicy`), policy spec, and per-page system spec; `pundit-matchers` in `:test`; NO per-page policy methods | `<SDK_GEM_PATH>/docs/authorization.md`, `<SDK_GEM_PATH>/app/models/strata/flows/application_form_controller.rb`, Section 6 above |
 
 ## 8. Common SDK pitfalls
 
@@ -251,10 +251,8 @@ Walk any application-form plan against these checks before generating code. Each
 | `strata:case` produced views/routes but applicant cannot reach the form | Those are STAFF views under `/staff`. Build the applicant surface separately via `bin/rails generate scaffold` (single page) or flow + `strata:application_form_views` (multi-page) |
 | `strata:application_form_views` errors "flow not found" | The flow class is hand-written — create `app/flows/<program>_application_form_flow.rb` first |
 | `--application_form` flag (underscore) ignored | Use `--application-form` (hyphen). The USAGE doc shows underscore due to a typo |
-| Clone fails with auth error, or doc file not found | Repo is public — check network/proxy/VPN; run `ls tmp/strata-sdk/` to confirm layout |
 | `Pundit::NotDefinedError` on every applicant page, or tempted to write `edit_<page>?` policy methods | Policy class missing or misapplied — create `<Program>ApplicationFormPolicy` (one `update?` gates every page; never per-page methods) |
 | Per-page spec passes some pages, errors on others | `before_action only:` likely a hand-written page list — replace with `Flow.generated_routes` |
 | Policy spec fails with `undefined method permit_all_actions` | `pundit-matchers` not in `:test` group — add to Gemfile, `bundle install` |
 | Owner gets 403 on submitted form edit page | Working as intended — `update?` checks `in_progress?`. Route post-submit traffic to a read-only `review` action |
 | Every page 500s with `NoMethodError: authorize` | Controller missing `include Pundit::Authorization` — usually inherited via `ApplicationController`, verify host app |
-| SDK docs conflict with this reference | Docs in the clone win — they reflect the installed gem version. Update this file. |
