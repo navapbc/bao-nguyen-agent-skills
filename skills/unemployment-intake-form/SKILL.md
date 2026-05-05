@@ -1,5 +1,6 @@
 ---
-description: Generates an unemployment insurance intake form (initial claim application). Use when building a new unemployment portal, prototyping a claim intake flow, or adding an intake form to an existing application. Generates code in the user's tech stack with proper USWDS components, validation, i18n, accessibility, and the standard unemployment domain model.
+name: unemployment-intake-form
+description: Generates an unemployment insurance intake form (initial claim application) with USWDS components, validation, i18n, and accessibility. Use when building or prototyping an unemployment portal in any tech stack.
 arguments: [tech-stack]
 ---
 

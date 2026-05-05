@@ -1,12 +1,13 @@
 ---
-description: Provides engineering guidelines for building unemployment insurance benefit portals. Use when starting a new UI portal project, when making architectural decisions, or when the user asks about best practices for government benefits applications. Covers intake forms, accessibility, legacy integration, and production readiness.
+name: unemployment-portal-guidelines
+description: Engineering guidelines for unemployment insurance benefit portals. Use when starting a new portal or making architectural decisions. Covers intake forms, accessibility, legacy integration, and production readiness.
 ---
 
 # Unemployment Insurance Portal — Engineering Guidelines
 
 These guidelines encode patterns from building government digital services including NJ DOL unemployment insurance modernization, the Strata SDK for government services, DOL ARPA modernization guidance, and cross-state unemployment insurance portal patterns. They apply regardless of tech stack.
 
-For the unemployment intake form domain model (fields, types, validation, form structure), reference the [unemployment-intake-schema.json](../unemployment-intake-schema.json).
+For the unemployment intake form domain model (fields, types, validation, form structure), reference the [unemployment-intake-schema.json](../unemployment-intake-form/unemployment-intake-schema.json).
 
 ## Intake Forms
 
@@ -78,7 +79,7 @@ For the unemployment intake form domain model (fields, types, validation, form s
 - Step indicator / progress bar sits above the form content at full width
 
 ### Data model
-- Use the shared domain types defined in [unemployment-intake-schema.json](../unemployment-intake-schema.json): Name, Address, TaxId, MemorableDate, Money, Phone, YesNo
+- Use the shared domain types defined in [unemployment-intake-schema.json](../unemployment-intake-form/unemployment-intake-schema.json): Name, Address, TaxId, MemorableDate, Money, Phone, YesNo
 - The schema provides the standard field set across states — extend for state-specific requirements
 - Structure form data to mirror the backend API model (nested objects, not flat field names) to avoid a mapping layer
 - Immutability after submission — once submitted, the application form should not be modifiable
