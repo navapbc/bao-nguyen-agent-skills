@@ -1,0 +1,421 @@
+/* ============================================================
+   USWDS v3.13 — Colors & Type foundations
+   Extracted from packages/uswds-core settings + uswds-tokens/colors
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   FONT-FACE DECLARATIONS
+   Four typefaces ship with USWDS. Public Sans and Source Sans
+   Pro fill the sans-serif role (Source Sans Pro is the default
+   for body/UI). Merriweather is the serif for headings.
+   Roboto Mono is used for code.
+   ------------------------------------------------------------ */
+
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 300; font-display: swap; src: url("fonts/PublicSans-Light.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/PublicSans-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: italic; font-weight: 400; font-display: swap; src: url("fonts/PublicSans-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("fonts/PublicSans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/PublicSans-Bold.woff2") format("woff2"); }
+
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 300; font-display: swap; src: url("fonts/SourceSansPro-Light.woff2") format("woff2"); }
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/SourceSansPro-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Source Sans Pro"; font-style: italic; font-weight: 400; font-display: swap; src: url("fonts/SourceSansPro-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/SourceSansPro-Semibold.woff2") format("woff2"); }
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/SourceSansPro-Bold.woff2") format("woff2"); }
+
+@font-face { font-family: "Merriweather"; font-style: normal; font-weight: 300; font-display: swap; src: url("fonts/Merriweather-Light.woff2") format("woff2"); }
+@font-face { font-family: "Merriweather"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/Merriweather-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Merriweather"; font-style: italic; font-weight: 400; font-display: swap; src: url("fonts/Merriweather-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Merriweather"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/Merriweather-Bold.woff2") format("woff2"); }
+
+@font-face { font-family: "Roboto Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/RobotoMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Roboto Mono"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/RobotoMono-Bold.woff2") format("woff2"); }
+
+
+:root {
+  /* ========================================================
+     COLOR — SYSTEM PALETTE (uswds-tokens/colors)
+     Each family ships 5–90 with optional "vivid" variants.
+     These are the raw tokens; theme roles below reference them.
+     ======================================================== */
+
+  /* Gray (neutral) */
+  --usa-gray-1: #fbfcfd; --usa-gray-2: #f0f0f0; --usa-gray-3: #eaeaea;
+  --usa-gray-4: #e6e6e6; --usa-gray-5: #f0f0f0; --usa-gray-10: #e6e6e6;
+  --usa-gray-20: #c9c9c9; --usa-gray-30: #adadad; --usa-gray-40: #919191;
+  --usa-gray-50: #757575; --usa-gray-60: #5c5c5c; --usa-gray-70: #454545;
+  --usa-gray-80: #2e2e2e; --usa-gray-90: #1b1b1b;
+
+  /* Gray cool (default base family) */
+  --usa-gray-cool-1: #fbfcfd; --usa-gray-cool-2: #f7f9fa; --usa-gray-cool-3: #f5f6f7;
+  --usa-gray-cool-4: #f1f3f6; --usa-gray-cool-5: #edeff0; --usa-gray-cool-10: #dfe1e2;
+  --usa-gray-cool-20: #c6cace; --usa-gray-cool-30: #a9aeb1; --usa-gray-cool-40: #8d9297;
+  --usa-gray-cool-50: #71767a; --usa-gray-cool-60: #565c65; --usa-gray-cool-70: #3d4551;
+  --usa-gray-cool-80: #2d2e2f; --usa-gray-cool-90: #1c1d1f;
+
+  /* Blue (primary) */
+  --usa-blue-5: #eff6fb; --usa-blue-10: #d9e8f6; --usa-blue-20: #aacdec;
+  --usa-blue-30: #73b3e7; --usa-blue-40: #4f97d1; --usa-blue-50: #2378c3;
+  --usa-blue-60: #2c608a; --usa-blue-70: #274863; --usa-blue-80: #1f303e; --usa-blue-90: #11181d;
+  --usa-blue-5v: #e8f5ff; --usa-blue-10v: #cfe8ff; --usa-blue-20v: #a1d3ff;
+  --usa-blue-30v: #58b4ff; --usa-blue-40v: #2491ff; --usa-blue-50v: #0076d6;
+  --usa-blue-60v: #005ea2; --usa-blue-70v: #0b4778; --usa-blue-80v: #112f4e;
+
+  /* Blue warm */
+  --usa-blue-warm-5: #ecf1f7; --usa-blue-warm-10: #e1e7f1; --usa-blue-warm-60v: #0050d8;
+  --usa-blue-warm-70v: #1a4480; --usa-blue-warm-80v: #162e51;
+
+  /* Red (secondary) */
+  --usa-red-5: #f9eeee; --usa-red-10: #f8e1de; --usa-red-20: #f7bbb1;
+  --usa-red-30: #f2938c; --usa-red-40: #e9695f; --usa-red-50: #d83933;
+  --usa-red-60: #a23737; --usa-red-60v: #b50909; --usa-red-70: #6f3331; --usa-red-70v: #8b0a03;
+
+  /* Red warm (error) */
+  --usa-red-warm-10: #f4e3db; --usa-red-warm-30v: #f39268;
+  --usa-red-warm-50v: #d54309; --usa-red-warm-60v: #9c3d10; --usa-red-warm-70: #524236; --usa-red-warm-80: #3e2a1e;
+
+  /* Orange (accent-warm) */
+  --usa-orange-5: #f6efe9; --usa-orange-10: #f2e4d4;
+  --usa-orange-20v: #ffbc78; --usa-orange-30v: #fa9441;
+  --usa-orange-50v: #c05600; --usa-orange-60: #775540;
+
+  /* Gold (warning) */
+  --usa-gold-5v: #fef0c8; --usa-gold-10v: #ffe396; --usa-gold-20v: #ffbe2e;
+  --usa-gold-30v: #e5a000; --usa-gold-50v: #936f38;
+  --usa-yellow-5: #faf3d1; --usa-yellow-10v: #fee685;
+
+  /* Green cool (success) */
+  --usa-green-cool-5: #ecf3ec; --usa-green-cool-20v: #70e17b;
+  --usa-green-cool-40v: #00a91c; --usa-green-cool-50v: #008817; --usa-green-cool-60v: #216e1f;
+
+  /* Cyan (info / accent-cool) */
+  --usa-cyan-5: #e7f6f8; --usa-cyan-20: #99deea;
+  --usa-cyan-30v: #00bde3; --usa-cyan-40v: #009ec1;
+  --usa-blue-cool-5v: #e1f3f8; --usa-blue-cool-20v: #adcfd8;
+  --usa-blue-cool-40v: #28a0cb; --usa-blue-cool-60v: #07648d;
+
+  /* Violet (visited link) */
+  --usa-violet-70v: #54278f;
+
+  /* ========================================================
+     COLOR — THEME ROLES (default USWDS assignments)
+     ======================================================== */
+
+  /* Base (neutrals) */
+  --color-base-lightest: var(--usa-gray-5);
+  --color-base-lighter:  var(--usa-gray-cool-10);
+  --color-base-light:    var(--usa-gray-cool-30);
+  --color-base:          var(--usa-gray-cool-50);
+  --color-base-dark:     var(--usa-gray-cool-60);
+  --color-base-darker:   var(--usa-gray-cool-70);
+  --color-base-darkest:  var(--usa-gray-90);
+  --color-ink:           var(--usa-gray-90);
+
+  /* Primary */
+  --color-primary-lighter: var(--usa-blue-10);
+  --color-primary-light:   var(--usa-blue-30);
+  --color-primary:         var(--usa-blue-60v);
+  --color-primary-vivid:   var(--usa-blue-warm-60v);
+  --color-primary-dark:    var(--usa-blue-warm-70v);
+  --color-primary-darker:  var(--usa-blue-warm-80v);
+
+  /* Secondary */
+  --color-secondary-lighter: var(--usa-red-10);
+  --color-secondary-light:   var(--usa-red-30);
+  --color-secondary:         var(--usa-red-50);
+  --color-secondary-dark:    var(--usa-red-60v);
+  --color-secondary-darker:  var(--usa-red-70v);
+
+  /* Accent warm */
+  --color-accent-warm-lighter: var(--usa-orange-10);
+  --color-accent-warm-light:   var(--usa-orange-20v);
+  --color-accent-warm:         var(--usa-orange-30v);
+  --color-accent-warm-dark:    var(--usa-orange-50v);
+  --color-accent-warm-darker:  var(--usa-orange-60);
+
+  /* Accent cool */
+  --color-accent-cool-lighter: var(--usa-blue-cool-5v);
+  --color-accent-cool-light:   var(--usa-blue-cool-20v);
+  --color-accent-cool:         var(--usa-cyan-30v);
+  --color-accent-cool-dark:    var(--usa-blue-cool-40v);
+  --color-accent-cool-darker:  var(--usa-blue-cool-60v);
+
+  /* State — error / warning / success / info */
+  --color-error-lighter: var(--usa-red-warm-10);
+  --color-error-light:   var(--usa-red-warm-30v);
+  --color-error:         var(--usa-red-warm-50v);
+  --color-error-dark:    var(--usa-red-60v);
+  --color-error-darker:  var(--usa-red-warm-70);
+
+  --color-warning-lighter: var(--usa-yellow-5);
+  --color-warning-light:   var(--usa-yellow-10v);
+  --color-warning:         var(--usa-gold-20v);
+  --color-warning-dark:    var(--usa-gold-30v);
+  --color-warning-darker:  var(--usa-gold-50v);
+
+  --color-success-lighter: var(--usa-green-cool-5);
+  --color-success-light:   var(--usa-green-cool-20v);
+  --color-success:         var(--usa-green-cool-40v);
+  --color-success-dark:    var(--usa-green-cool-50v);
+  --color-success-darker:  var(--usa-green-cool-60v);
+
+  --color-info-lighter: var(--usa-cyan-5);
+  --color-info-light:   var(--usa-cyan-20);
+  --color-info:         var(--usa-cyan-30v);
+  --color-info-dark:    var(--usa-cyan-40v);
+  --color-info-darker:  var(--usa-blue-cool-60v);
+
+  --color-emergency:      var(--usa-red-warm-60v);
+  --color-emergency-dark: var(--usa-red-warm-80);
+
+  /* Foreground / background semantic aliases */
+  --fg-default:  var(--color-ink);
+  --fg-muted:    var(--color-base-dark);
+  --fg-subtle:   var(--color-base);
+  --fg-reverse:  #ffffff;
+  --bg-default:  #ffffff;
+  --bg-subtle:   var(--color-base-lightest);
+  --bg-alt:      var(--usa-gray-cool-2);
+  --bg-inverse:  var(--color-base-darkest);
+
+  /* Link */
+  --color-link:         var(--color-primary);
+  --color-link-visited: var(--usa-violet-70v);
+  --color-link-hover:   var(--color-primary-dark);
+  --color-link-active:  var(--color-primary-darker);
+
+  /* Focus ring — 0.25rem gold outline with 2px offset is the USWDS signature */
+  --focus-ring-color: var(--usa-gold-20v);
+  --focus-ring-width: 0.25rem; /* 4px */
+  --focus-ring-offset: 2px;
+
+  /* ========================================================
+     TYPE — FONT FAMILIES
+     Default roles: body/ui = sans (Source Sans Pro),
+     heading/alt = serif (Merriweather), code = mono (Roboto Mono).
+     ======================================================== */
+  --font-sans:  "Source Sans Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans-alt: "Public Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: "Merriweather", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono:  "Roboto Mono", "Bitstream Vera Sans Mono", Consolas, Courier, monospace;
+
+  --font-ui:      var(--font-sans);
+  --font-body:    var(--font-sans);
+  --font-heading: var(--font-serif);
+  --font-code:    var(--font-mono);
+  --font-alt:     var(--font-serif);
+
+  /* ========================================================
+     TYPE — SCALE (USWDS system-type-scale, rem-based with 16px root)
+     micro 10 / 1-12 / 2-13 / 3-14 / 4-15 / 5-16 / 6-17 / 7-18 / 8-20 /
+     9-22 / 10-24 / 11-28 / 12-32 / 13-36 / 14-40 / 15-48 / 16-56 / 17-64 /
+     18-80 / 19-120 / 20-140
+     ======================================================== */
+  --fs-micro: 0.625rem; /* 10 */
+  --fs-1:  0.75rem;   /* 12 */
+  --fs-2:  0.8125rem; /* 13 */
+  --fs-3:  0.875rem;  /* 14 */
+  --fs-4:  0.9375rem; /* 15 */
+  --fs-5:  1rem;      /* 16 */
+  --fs-6:  1.0625rem; /* 17 */
+  --fs-7:  1.125rem;  /* 18 */
+  --fs-8:  1.25rem;   /* 20 */
+  --fs-9:  1.375rem;  /* 22 */
+  --fs-10: 1.5rem;    /* 24 */
+  --fs-11: 1.75rem;   /* 28 */
+  --fs-12: 2rem;      /* 32 */
+  --fs-13: 2.25rem;   /* 36 */
+  --fs-14: 2.5rem;    /* 40 */
+  --fs-15: 3rem;      /* 48 */
+  --fs-16: 3.5rem;    /* 56 */
+  --fs-17: 4rem;      /* 64 */
+  --fs-18: 5rem;      /* 80 */
+
+  /* Semantic type scale (USWDS default theme) */
+  --fs-3xs: var(--fs-2);
+  --fs-2xs: var(--fs-3);
+  --fs-xs:  var(--fs-4);
+  --fs-sm:  var(--fs-5);
+  --fs-md:  var(--fs-6);
+  --fs-lg:  var(--fs-9);
+  --fs-xl:  var(--fs-12);
+  --fs-2xl: var(--fs-14);
+  --fs-3xl: var(--fs-15); /* display */
+
+  /* Line heights (USWDS tokens 1–6) */
+  --lh-1: 1;
+  --lh-2: 1.15;
+  --lh-3: 1.35;
+  --lh-4: 1.5;
+  --lh-5: 1.62;
+  --lh-6: 1.75;
+
+  /* Font weights */
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* Measure (max-width of prose) */
+  --measure-1: 44ex;
+  --measure-2: 60ex;
+  --measure-3: 64ex;
+  --measure-4: 68ex;
+  --measure-5: 74ex;
+  --measure-6: 88ex;
+
+  /* ========================================================
+     SPACING UNITS — USWDS units() function (8px grid)
+     ======================================================== */
+  --sp-0:    0;
+  --sp-1px:  1px;
+  --sp-2px:  2px;
+  --sp-05:   0.25rem; /* 4 */
+  --sp-1:    0.5rem;  /* 8 */
+  --sp-105:  0.75rem; /* 12 */
+  --sp-2:    1rem;    /* 16 */
+  --sp-205:  1.25rem; /* 20 */
+  --sp-3:    1.5rem;  /* 24 */
+  --sp-4:    2rem;    /* 32 */
+  --sp-5:    2.5rem;  /* 40 */
+  --sp-6:    3rem;    /* 48 */
+  --sp-7:    3.5rem;  /* 56 */
+  --sp-8:    4rem;    /* 64 */
+  --sp-9:    4.5rem;  /* 72 */
+  --sp-10:   5rem;    /* 80 */
+  --sp-15:   7.5rem;  /* 120 */
+
+  /* Column-gap tokens */
+  --gap-2px: 2px;
+  --gap-05:  4px;
+  --gap-1:   8px;
+  --gap-2:   16px;
+  --gap-3:   24px;
+  --gap-4:   32px;
+  --gap-5:   40px;
+  --gap-6:   48px;
+
+  /* ========================================================
+     BORDER RADIUS — USWDS defaults (sm=2, md=4, lg=8 in 8px units? No;
+     sm/md/lg settings accept spacing tokens. Defaults:
+     sm = 2px, md = 0.25rem (4px), lg = 0.5rem (8px).
+     ======================================================== */
+  --radius-0:    0;
+  --radius-sm:   2px;
+  --radius-md:   0.25rem; /* 4 */
+  --radius-lg:   0.5rem;  /* 8 */
+  --radius-pill: 99rem;
+
+  /* ========================================================
+     BORDERS
+     ======================================================== */
+  --border-width: 1px;
+  --border-width-2: 2px;
+  --border-width-4: 4px;
+  --border-default: 1px solid var(--color-base-light);
+  --border-subtle:  1px solid var(--color-base-lighter);
+  --border-strong:  2px solid var(--color-base-darker);
+
+  /* ========================================================
+     SHADOW — USWDS has a limited elevation system.
+     ======================================================== */
+  --shadow-1: 0 1px 4px 0 rgba(0, 0, 0, 0.1);
+  --shadow-2: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
+  --shadow-3: 0 8px 16px 0 rgba(0, 0, 0, 0.1);
+  --shadow-4: 0 12px 24px 0 rgba(0, 0, 0, 0.1);
+  --shadow-5: 0 16px 32px 0 rgba(0, 0, 0, 0.1);
+
+  /* ========================================================
+     MOTION — USWDS ships a single transition default.
+     ======================================================== */
+  --easing: ease-in-out;
+  --transition-fast:   0.15s ease-in-out;
+  --transition-base:   0.25s ease-in-out;
+
+  /* ========================================================
+     BREAKPOINTS (USWDS grid) — em-based
+     ======================================================== */
+  --bp-card:      160px; /* 10em */
+  --bp-card-lg:   240px; /* 15em */
+  --bp-mobile:    320px; /* 20em */
+  --bp-mobile-lg: 480px; /* 30em */
+  --bp-tablet:    640px; /* 40em */
+  --bp-tablet-lg: 880px; /* 55em */
+  --bp-desktop:   1024px;/* 64em */
+  --bp-desktop-lg:1200px;/* 75em */
+  --bp-widescreen:1400px;/* 87.5em */
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES
+   These mirror what USWDS outputs via @include typeset().
+   Use by wrapping content in the `.usa-prose` class, or apply
+   directly to elements in an uswds-scoped container.
+   ============================================================ */
+
+body,
+.usa-body {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);       /* 16px */
+  line-height: var(--lh-5);       /* 1.62 */
+  color: var(--fg-default);
+  background: var(--bg-default);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .usa-h1 { font-family: var(--font-heading); font-size: var(--fs-2xl); line-height: var(--lh-2); font-weight: var(--fw-bold); margin-top: 1.5em; margin-bottom: 0.5em; }
+h2, .usa-h2 { font-family: var(--font-heading); font-size: var(--fs-xl);  line-height: var(--lh-2); font-weight: var(--fw-bold); margin-top: 1.5em; margin-bottom: 0.5em; }
+h3, .usa-h3 { font-family: var(--font-heading); font-size: var(--fs-lg);  line-height: var(--lh-2); font-weight: var(--fw-bold); margin-top: 1.5em; margin-bottom: 0.5em; }
+h4, .usa-h4 { font-family: var(--font-heading); font-size: var(--fs-sm);  line-height: var(--lh-2); font-weight: var(--fw-bold); margin-top: 1.5em; margin-bottom: 0.5em; }
+h5, .usa-h5 { font-family: var(--font-heading); font-size: var(--fs-xs);  line-height: var(--lh-2); font-weight: var(--fw-bold); margin-top: 1.5em; margin-bottom: 0.5em; }
+h6, .usa-h6 { font-family: var(--font-heading); font-size: var(--fs-3xs); line-height: var(--lh-2); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1.5em; margin-bottom: 0.5em; }
+
+p, .usa-p {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-5);
+  max-width: var(--measure-4);
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.usa-display {
+  font-family: var(--font-heading);
+  font-size: var(--fs-3xl);
+  line-height: var(--lh-2);
+  font-weight: var(--fw-bold);
+}
+
+.usa-intro {
+  /* Lead paragraph — heading font, larger size, looser line height */
+  font-family: var(--font-heading);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-6);
+  max-width: var(--measure-6);
+}
+
+small, .usa-small {
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-4);
+}
+
+code, kbd, samp, pre, .usa-code {
+  font-family: var(--font-code);
+  font-size: 0.94em;
+}
+
+a, .usa-link {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+a:visited, .usa-link:visited { color: var(--color-link-visited); }
+a:hover,   .usa-link:hover   { color: var(--color-link-hover); }
+a:active,  .usa-link:active  { color: var(--color-link-active); }
+
+*:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}

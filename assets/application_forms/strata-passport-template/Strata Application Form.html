@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Strata application form — passport (template)</title>
+  <link rel="stylesheet" href="uswds/colors_and_type.css" />
+  <link rel="stylesheet" href="app.css" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="Chrome.jsx"></script>
+  <script type="text/babel" src="FormParts.jsx"></script>
+  <script type="text/babel" src="Pages.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "groupedNameDob": false,
+      "mobilePreview": false
+    }/*EDITMODE-END*/;
+
+    const STORAGE_KEY = 'strata-passport-app-v1';
+
+    const SAMPLE_APPLICATIONS = [
+      { id: 'A0049281', status: 'in_progress', startedAt: 'May 2, 2026', percent: 60 },
+      { id: 'A0048120', status: 'action_needed', dueAt: 'May 19, 2026', confirmation: 'P-9KX2Q-2026', actionDetail: 'Upload a clearer photo of your proof of citizenship.' },
+      { id: 'A0045007', status: 'in_review', submittedAt: 'April 14, 2026', confirmation: 'P-7HM4D-2026' },
+      { id: 'A0039912', status: 'approved', submittedAt: 'February 3, 2026', confirmation: 'P-2QV8L-2026' },
+    ];
+
+    const blankFormData = () => ({
+      name: { first: '', middle: '', last: '', suffix: '' },
+      dob: { month: '', day: '', year: '' },
+      placeOfBirth: { country: 'US', city: '', state: '', foreignCountry: '' },
+      address: { line1: '', line2: '', city: '', state: '', zip: '' },
+    });
+
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const grouped = !!tweaks.groupedNameDob;
+
+      const [route, setRoute] = React.useState('dashboard');
+      const [lang, setLang] = React.useState('en');
+      const [saveModal, setSaveModal] = React.useState(false);
+      const [applications, setApplications] = React.useState(SAMPLE_APPLICATIONS);
+      const [submitted, setSubmitted] = React.useState(null);
+
+      // Persisted form data so the user can navigate without losing state.
+      const [data, setData] = React.useState(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) return { ...blankFormData(), ...JSON.parse(raw) };
+        } catch (e) { /* ignore */ }
+        // pre-fill the in-progress sample so users can see "Continue" land mid-flow
+        return {
+          ...blankFormData(),
+          name: { first: 'Jordan', middle: '', last: 'Rivera', suffix: '' },
+          dob: { month: '04', day: '28', year: '1986' },
+          placeOfBirth: { country: 'US', city: 'Austin', state: 'TX', foreignCountry: '' },
+          address: { line1: '', line2: '', city: '', state: '', zip: '' },
+        };
+      });
+
+      React.useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+      }, [data]);
+
+      // Mobile-preview tweak — toggles a body class.
+      React.useEffect(() => {
+        document.body.classList.toggle('mobile-preview', !!tweaks.mobilePreview);
+      }, [tweaks.mobilePreview]);
+
+      const handleSave = () => setSaveModal(true);
+      const handleSaveConfirm = () => { setSaveModal(false); setRoute('dashboard'); };
+      const handleSaveDismiss = () => setSaveModal(false);
+
+      // Route map — adjusted to honor "grouped" tweak (skips standalone DOB step)
+      const flow = grouped
+        ? ['intro', 'name-dob', 'pob', 'address', 'review']
+        : ['intro', 'name', 'dob', 'pob', 'address', 'review'];
+      const idx = (r) => flow.indexOf(r);
+      const next = (r) => flow[idx(r) + 1] || 'review';
+      const prev = (r) => flow[idx(r) - 1] || 'intro';
+      // Step number = position in flow (intro counts as step 1)
+      const stepFor = (r) => idx(r) + 1;
+
+      const onSubmit = () => {
+        const conf = 'P-' + Math.random().toString(36).slice(2, 8).toUpperCase() + '-2026';
+        const submittedAt = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        setSubmitted({ ...data, confirmation: conf, submittedAt });
+        // Move the in-progress card to submitted in the dashboard list.
+        setApplications((apps) => apps
+          .filter((a) => a.id !== 'A0049281')
+          .concat([{ id: 'A0049281', status: 'submitted', submittedAt, confirmation: conf }])
+        );
+        setRoute('confirmation');
+      };
+
+      const renderRoute = () => {
+        switch (route) {
+          case 'dashboard':
+            return (
+              <Dashboard
+                applications={applications}
+                onStart={() => setRoute('intro')}
+                onResume={() => setRoute(grouped ? 'pob' : 'pob')}
+                onView={() => setRoute('confirmation')}
+              />
+            );
+          case 'intro':
+            return <IntroPage onStart={() => setRoute(next('intro'))} onSave={handleSave} />;
+          case 'name-dob':
+            return (
+              <NameDobPage
+                grouped={true}
+                data={data} setData={setData}
+                onBack={() => setRoute(prev('name-dob'))}
+                onContinue={() => setRoute(next('name-dob'))}
+                onSave={handleSave}
+              />
+            );
+          case 'name':
+            return (
+              <NameDobPage
+                grouped={false}
+                data={data} setData={setData}
+                onBack={() => setRoute(prev('name'))}
+                onContinue={() => setRoute(next('name'))}
+                onSave={handleSave}
+              />
+            );
+          case 'dob':
+            return (
+              <DobPage
+                data={data} setData={setData}
+                onBack={() => setRoute(prev('dob'))}
+                onContinue={() => setRoute(next('dob'))}
+                onSave={handleSave}
+              />
+            );
+          case 'pob':
+            return (
+              <PlaceOfBirthPage
+                data={data} setData={setData}
+                stepIndex={stepFor('pob')}
+                onBack={() => setRoute(prev('pob'))}
+                onContinue={() => setRoute(next('pob'))}
+                onSave={handleSave}
+              />
+            );
+          case 'address':
+            return (
+              <AddressPage
+                data={data} setData={setData}
+                stepIndex={stepFor('address')}
+                onBack={() => setRoute(prev('address'))}
+                onContinue={() => setRoute(next('address'))}
+                onSave={handleSave}
+              />
+            );
+          case 'review':
+            return (
+              <ReviewPage
+                data={data}
+                grouped={grouped}
+                stepIndex={stepFor('review')}
+                onBack={() => setRoute(prev('review'))}
+                onSubmit={onSubmit}
+                onSave={handleSave}
+                onEdit={(target) => setRoute(target)}
+              />
+            );
+          case 'confirmation':
+            return (
+              <ConfirmationPage
+                data={submitted || { ...data, confirmation: 'P-DEMO-2026', submittedAt: 'May 5, 2026' }}
+                onDashboard={() => setRoute('dashboard')}
+              />
+            );
+          default:
+            return null;
+        }
+      };
+
+      // Override flow length cosmetically — the StepIndicator currently shows
+      // "of N" using a constant. We patch by re-rendering: the constant FLOW_TOTAL
+      // is fine for both grouped (5) and ungrouped (6), but we want it accurate.
+      // Simpler: the steps shown in the indicator should equal the form-pages
+      // count (intro through review). Provide that via a side channel.
+      React.useEffect(() => {
+        // Re-define FLOW_TOTAL for the StepIndicator on the fly — read in Pages.jsx
+        // via a global. We adjust per-tweak.
+        window.__FLOW_TOTAL = flow.length;
+      }, [flow.length]);
+
+      const inProgressFlow = !['dashboard', 'confirmation'].includes(route);
+
+      return (
+        <React.Fragment>
+          <div className="app-shell">
+            <Banner />
+            <Header
+              activePage={inProgressFlow ? 'dashboard' : route === 'confirmation' ? 'dashboard' : 'dashboard'}
+              onNav={(p) => { if (p === 'dashboard') setRoute('dashboard'); }}
+              lang={lang}
+              onLangToggle={() => setLang((l) => (l === 'en' ? 'es' : 'en'))}
+            />
+            {renderRoute()}
+            <Footer />
+          </div>
+
+          <SaveModal open={saveModal} onClose={handleSaveDismiss} onConfirm={handleSaveConfirm} />
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection title="Form layout">
+              <TweakRadio
+                label="Personal info layout"
+                options={[
+                  { value: false, label: 'One question per page' },
+                  { value: true, label: 'Group name + DOB' },
+                ]}
+                value={tweaks.groupedNameDob}
+                onChange={(v) => setTweak('groupedNameDob', v)}
+              />
+            </TweakSection>
+            <TweakSection title="Preview">
+              <TweakToggle
+                label="Mobile preview"
+                value={tweaks.mobilePreview}
+                onChange={(v) => setTweak('mobilePreview', v)}
+              />
+            </TweakSection>
+            <TweakSection title="Jump to screen">
+              <div style={{display: 'grid', gap: 6}}>
+                {[
+                  ['dashboard', 'Dashboard'],
+                  ['intro', 'Intro'],
+                  [grouped ? 'name-dob' : 'name', grouped ? 'Name + DOB' : 'Name'],
+                  ...(grouped ? [] : [['dob', 'Date of birth']]),
+                  ['pob', 'Place of birth'],
+                  ['address', 'Address'],
+                  ['review', 'Review'],
+                  ['confirmation', 'Confirmation'],
+                ].map(([id, label]) => (
+                  <TweakButton
+                    key={id}
+                    label={label}
+                    onClick={() => setRoute(id)}
+                  />
+                ))}
+              </div>
+            </TweakSection>
+          </TweaksPanel>
+        </React.Fragment>
+      );
+    }
+
+    // Patch StepIndicator's "of N" with current flow length via a global hook.
+    // Simpler approach: monkey-patch the IntroPage / others by re-reading window.__FLOW_TOTAL.
+    // We do this by wrapping StepIndicator.
+    const _StepIndicator = window.StepIndicator;
+    window.StepIndicator = (props) => {
+      const total = window.__FLOW_TOTAL || props.total;
+      return _StepIndicator({ ...props, total });
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
