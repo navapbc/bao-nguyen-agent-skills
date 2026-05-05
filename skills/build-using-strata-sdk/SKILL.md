@@ -354,6 +354,8 @@ Step 11 produced the applicant-facing form scaffolding. This step drives every U
 
 If a generated spec passes immediately without any code edit, the spec is too weak — strengthen it before moving on. Show route diffs and view edits to the user before saving.
 
+For visual patterns and component inventory (USWDS chrome, dashboard status taxonomy, multi-page flow shape, step indicator markup, Save & Exit, review page, confirmation page) see [`references/application-form-ui.md`](references/application-form-ui.md).
+
 ## Step 17: Verify
 
 ```sh
@@ -383,6 +385,7 @@ For SDK pitfalls (auto-suffixing, generator chains, Pundit, view surfaces, etc.)
 ## Reference
 
 - Strata SDK reference: [`references/strata-sdk.md`](references/strata-sdk.md)
+- Application form UI reference: [`references/application-form-ui.md`](references/application-form-ui.md)
 - Strata SDK Rails (gem): https://github.com/navapbc/strata-sdk-rails
 - Installed gem path (after Step 4): `<SDK_GEM_PATH>`
 - Build plan: `<RAILS_DIR>/docs/<app-type>-application-form-plan.md`
