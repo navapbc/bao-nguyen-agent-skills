@@ -1,19 +1,21 @@
 ---
 name: build-using-strata-sdk
-description: Adds a Strata SDK application form to a scaffolded Strata Rails app by cloning the SDK repo locally for reference instead of generating agent rules. Use when extending a Strata Rails project with a government intake form via the strata_sdk_rails gem.
+description: Adds a Strata SDK application form to a scaffolded Strata Rails app. Use when extending a Strata Rails project with a government intake form via the strata_sdk_rails gem.
 ---
 
 # Build Using Strata SDK
 
 ## Overview
 
-Extends an existing Strata Rails app (typically scaffolded by the `build-strata-rails-app` skill) with a Strata SDK application form. Installs the `strata_sdk_rails` gem, clones the SDK repository into `tmp/strata-sdk/` for local reference, generates the form model + migration + views, and wires up an entry point chosen by the user.
+Extends an existing Strata Rails app (typically scaffolded by `build-strata-rails-app`) with a Strata SDK application form. Plan the form against the SDK's actual generators and attribute catalog, drive the SDK's generators to produce model + specs + migration + controller + views, then TDD every change made on top of generator output.
 
-**Scope (currently):** application forms only. Other Strata features (cases, business processes, tasks) are out of scope for this skill.
+**Scope:** application forms, their associated cases, and the business processes that govern them. Tasks are surfaced during planning but built elsewhere.
 
-**TDD is mandatory.** Every step that produces or modifies Ruby code must follow the `test-driven-development` skill: write a failing RSpec spec, run `make test` to watch it fail, write minimal Ruby, run `make test` to watch it pass, then `make lint`. See [`references/test-driven-development.md`](references/test-driven-development.md).
+**SDK knowledge** (docs map, generators, domain model, UI surfaces, Pundit policies, plan validation checklist, pitfalls): [`references/strata-sdk.md`](references/strata-sdk.md). Read it before planning; consult it whenever a question about SDK behavior arises.
 
-**Before reporting completion**, follow the verification reference: [`references/verification.md`](references/verification.md).
+**TDD is mandatory** for every change made on top of generator output: see [`references/test-driven-development.md`](references/test-driven-development.md).
+
+**Before reporting completion**, see [`references/verification.md`](references/verification.md).
 
 ## Step 1: Confirm intent
 
@@ -24,97 +26,20 @@ Ask the user exactly this:
 - Reply declines / "skip" / "no" → stop. Do not run any commands.
 - Reply confirms → tell the user the Strata SDK is a good fit and proceed.
 
-## Step 2: Planning Phase
-
-Gather all design decisions before touching any code. Ask each question in sequence — wait for the answer before asking the next.
-
-**2a. Application type**
-
-> **What kind of application is this? (e.g. unemployment benefits, SNAP, Medicaid, housing assistance, passport, business license, appeal, other)**
-
-Derive the model name from the answer:
-
-| Type | Suggested form name |
-|------|---------------------|
-| Unemployment | `UnemploymentApplicationForm` |
-| SNAP | `SnapApplicationForm` |
-| Medicaid | `MedicaidApplicationForm` |
-| Housing | `HousingApplicationForm` |
-| Other | `<DomainName>ApplicationForm` |
-
-Save as `<APP_TYPE>` and `<FORM_NAME>`.
-
-**2b. Propose and confirm attributes**
-
-Suggest a starting set appropriate for `<APP_TYPE>` using common Strata attribute types (the SDK docs will be cross-checked in Step 8). Common starter set:
-
-| Attribute | Strata type | Notes |
-|-----------|-------------|-------|
-| `name` | `name` | Applicant full name |
-| `birth_date` | `memorable_date` | DOB |
-| `ssn` | `tax_id` | If program requires SSN |
-| `residential_address` | `address` | Mailing/residential |
-| `email` | `email` | Contact |
-| `phone` | `phone` | Contact |
-
-Tailor by program (confirm with the user, do not invent silently):
-
-- **Unemployment:** last employer, last day worked, reason for separation, weekly earnings
-- **SNAP:** household size, monthly income, household members, expenses
-- **Medicaid:** household size, income, citizenship status, disability status
-
-Iterate until the user confirms:
-
-> **Confirm this attribute list? (yes / edit)**
-
-Save the final list as `<ATTRS>` formatted as `name:strata_type` pairs separated by spaces.
-
-**2c. Entry point**
-
-> **How will users reach this form after they log in?**
->
-> 1. Landing page after login (root for authenticated users)
-> 2. Link or card on an existing dashboard
-> 3. Button on a specific page (which one?)
-> 4. Other (describe)
-
-Save as `<ENTRY_POINT>`.
-
-**2d. Post-submission behavior**
-
-> **What should happen immediately after the user submits the form?**
->
-> 1. Show a confirmation/review page with all the details they entered
-> 2. Redirect to the dashboard with a success message
-> 3. Other (describe)
-
-Save as `<POST_SUBMIT>`.
-
-**2e. Return navigation**
-
-> **If the user navigates back to the landing page or dashboard after submitting, what should they see?**
->
-> 1. Their existing submitted application (read-only view)
-> 2. A form to submit a new application
-> 3. A list of all their existing applications
-> 4. Other (describe)
-
-Save as `<RETURN_BEHAVIOR>`.
-
-## Step 3: Locate the Rails app directory
+## Step 2: Locate the Rails app directory and verify Ruby version
 
 The project may be a monorepo — the Rails app likely lives in a subdirectory (e.g. `apps/<app_name>/`, `<app_name>/`), not necessarily the current working directory. Find it before doing anything else.
 
-**3a. Check if cwd is already the Rails app:**
+**2a. Check if cwd is already the Rails app:**
 
 ```sh
 test -f Gemfile && test -f bin/rails && grep -q "rails" Gemfile
 ```
 
-- All checks pass → cwd is the Rails app. Save `<RAILS_DIR>=.` and proceed to Step 4.
-- Any check fails → continue to 3b.
+- All checks pass → cwd is the Rails app. Save `<RAILS_DIR>=.` and proceed to 2c.
+- Any check fails → continue to 2b.
 
-**3b. Search for Rails app directories under cwd (depth ≤ 3):**
+**2b. Search for Rails app directories under cwd (depth ≤ 3):**
 
 ```sh
 find . -maxdepth 3 -type f -name "Gemfile" -not -path "*/node_modules/*" -not -path "*/.git/*" -exec sh -c 'test -f "$(dirname "$1")/bin/rails" && grep -q "rails" "$1" && dirname "$1"' _ {} \;
@@ -132,77 +57,31 @@ Interpret the output:
 
   Save the chosen path as `<RAILS_DIR>`.
 
-**3c. All subsequent commands** (Step 6 onward) **must run from inside `<RAILS_DIR>`**. Run all `<RAILS_DIR>` paths in `references/ruby-version-check.md` relative to the directory chosen in Step 3.
+**2c. All subsequent commands must run from inside `<RAILS_DIR>`.**
 
-## Step 4: Write the plan document
+**2d. Verify Ruby version matches the project.** Follow [`references/ruby-version-check.md`](references/ruby-version-check.md). Do not proceed until `ruby -v` matches the project's required version and `bundle -v` succeeds.
 
-**Follow the shared reference: [`references/writing-plans.md`](references/writing-plans.md)** for plan structure, task granularity, and no-placeholder rules.
+## Step 3: Install the strata_sdk_rails gem
 
-Create `<RAILS_DIR>/docs/` if it doesn't exist. Save the plan to `<RAILS_DIR>/docs/<app-type>-application-form-plan.md`. The plan header must cover:
-
-- **Application Type:** `<APP_TYPE>` → model `<FORM_NAME>`
-- **Attributes table:** the confirmed `<ATTRS>` list with Strata types and notes
-- **Entry Point:** `<ENTRY_POINT>` description
-- **Post-Submission Behavior:** `<POST_SUBMIT>` description
-- **Return Navigation:** `<RETURN_BEHAVIOR>` description
-- **What Will Be Built:**
-  - Model: `app/models/strata/<form_name>.rb`
-  - Migration: base columns (`status`, `user_id`, `submitted_at`) + attributes above
-  - Controller + views for the form
-  - Entry point wired per selection above
-  - Post-submit flow per selection above
-  - Return navigation per selection above
-
-## Step 5: User confirms plan
-
-Tell the user:
-
-> Plan written to `docs/<app-type>-application-form-plan.md`. Please review it and reply **confirm** to begin building, or describe any changes and I'll update the plan first.
-
-If the user requests changes: update the plan file and re-prompt. Only proceed once the user confirms.
-
-## Step 6: Verify Ruby version matches the project
-
-Before installing any gems, confirm the active Ruby matches what the project requires. Mismatched Ruby is a common cause of confusing `bundle install` failures.
-
-**Follow the shared reference: [`references/ruby-version-check.md`](references/ruby-version-check.md)**.
-
-It walks through:
-
-- **A.** read `.ruby-version` / `Gemfile` / `.tool-versions` → `<REQUIRED_RUBY>`
-- **B.** compare against `ruby -v`
-- **C.** ask the user which version manager they use (rbenv / asdf / rvm / chruby / other)
-- **D.** install the version if missing, then activate it
-- **E.** verify `bundle -v`
-
-Do not proceed to Step 7 until `ruby -v` matches `<REQUIRED_RUBY>` and `bundle -v` succeeds.
-
-## Step 7: Install the strata_sdk_rails gem
-
-Add the gem to the `Gemfile` (idempotent — skip if already present):
+Add to the `Gemfile` (idempotent — skip if already present):
 
 ```ruby
 # Strata Government Digital Services SDK Rails engine
 gem "strata", git: "https://github.com/navapbc/strata-sdk-rails.git"
 ```
 
-**7a. Install locally:**
+**3a.** `bundle install`. Stop and report on failure.
 
-```sh
-bundle install
-```
-
-If `bundle install` fails, stop and report the exact error.
-
-**7b. Rebuild the Docker image** so the container has the new gem:
+**3b. Rebuild the Docker image** so the container has the new gem:
 
 ```sh
 make build
+make precompile-assets
 ```
 
-Stop and report on failure.
+Stop and report on failure. (`make precompile-assets` compiles front-end assets inside the container — skipping it causes asset failures in 3c.)
 
-**7c. Verify the existing test suite still passes:**
+**3c. Verify the existing test suite still passes:**
 
 ```sh
 make lint
@@ -211,179 +90,299 @@ make test
 
 If `make test` regresses, the gem may conflict with an existing dependency. Stop and report.
 
-## Step 8: Clone the SDK repository for local reference
+## Step 4: Locate the SDK gem path
 
-Clone the Strata SDK Rails repo into `tmp/strata-sdk/` inside `<RAILS_DIR>` so docs and source are readable without network access after this step.
-
-```sh
-git clone --depth 1 https://github.com/navapbc/strata-sdk-rails.git tmp/strata-sdk
-```
-
-If clone fails (no network, auth error, etc.), stop and report — do not proceed without local docs.
-
-**8a. Ensure `tmp/strata-sdk/` is gitignored.** Append to `<RAILS_DIR>/.gitignore` if the line is not already present:
-
-```
-/tmp/strata-sdk/
-```
-
-**8b. Identify key doc files.** List what's available:
+After the gem is installed, look up where Bundler installed it:
 
 ```sh
-ls tmp/strata-sdk/docs/
+bundle show strata
 ```
 
-At minimum, locate:
+Save the output as `<SDK_GEM_PATH>`. This path contains the SDK's docs, generators, and source code — use it for all SDK file reads throughout this skill.
 
-| What to find | Typical path inside clone |
-|--------------|---------------------------|
-| Application form guide | `docs/intake-application-forms.md` |
-| Strata attribute types | `docs/strata-attributes.md` |
-| Generator reference | `lib/generators/` or README |
-
-Read each located file before proceeding. These are the authoritative recipe. If a doc conflicts with the steps below, the doc wins.
-
-**8c. Cross-check `<ATTRS>` against `tmp/strata-sdk/docs/strata-attributes.md`.** Verify every attribute type in `<ATTRS>` is listed in the docs. If any type is unsupported, report to the user and propose a fix. Update the plan doc if attributes change, then re-confirm with the user before proceeding.
-
-## Step 9: Validate against SDK docs, then generate the model
-
-**9a. Re-read the SDK docs from the clone** before invoking any generator:
-
-- `tmp/strata-sdk/docs/intake-application-forms.md`
-- `tmp/strata-sdk/docs/strata-attributes.md`
-- Any migration-related doc in `tmp/strata-sdk/docs/`
-
-**9b. Validate the proposed model + attributes against the docs:**
-
-| Check | What to verify |
-|-------|----------------|
-| Form name | Matches naming convention the docs require |
-| Parent class | Model must extend `Strata::ApplicationForm` |
-| Attribute types | Every `<ATTRS>` entry uses a Strata type listed in the docs |
-| Required base columns | `status`, `user_id`, `submitted_at` needed in migration |
-| Attribute naming | snake_case, no reserved names |
-
-**9c. If any check fails**, do not run the generator. Report the conflict, propose a fix, update the plan doc, and re-confirm with the user.
-
-**9d. Write failing model specs FIRST (TDD).** Write RSpec specs under `spec/models/strata/<form_name>_spec.rb` covering at least:
-
-- Extends `Strata::ApplicationForm`
-- Each `<ATTRS>` entry is declared as the right Strata type
-- Required-attribute validations the docs specify
-- Status transitions (`in_progress` → `submitted`) and immutability after `submitted`
-
-Run `make test` and confirm these specs **fail** (model doesn't exist yet). See [`references/test-driven-development.md`](references/test-driven-development.md).
-
-**9e. Generate the model:**
+Verify the path contains expected content:
 
 ```sh
-bin/rails generate strata:application_form <FormName> <ATTRS>
+ls <SDK_GEM_PATH>/docs/
+ls <SDK_GEM_PATH>/lib/generators/strata/
 ```
 
-**9f. Verify and finish the model.** Open `app/models/strata/<form_name>.rb`:
+If either listing is empty or the path doesn't exist, `bundle install` may have failed silently. Re-run and retry.
 
-- Extends `Strata::ApplicationForm` (not `ApplicationRecord`) — fix if not.
-- Each attribute uses `strata_attribute :<name>, :<type>` per the docs.
-- Add any doc-mandated validations, scopes, associations the generator didn't add.
+## Step 5: Read the SDK reference
 
-If the generator created stub specs, replace or fold them into the specs from 9d. Run `make test` until the specs from 9d pass, then `make lint`.
+Open [`references/strata-sdk.md`](references/strata-sdk.md) and read sections 1–6 end-to-end. That file is the single source of truth for: docs catalog, generators inventory, domain model (relations, status lifecycle, attribute types), the two UI surfaces (staff vs applicant), and Pundit policies.
 
-## Step 10: Generate and run the migration
+Verify the installed gem matches what the reference describes:
 
 ```sh
-bin/rails generate strata:migration status:integer user_id:uuid submitted_at:datetime <ATTRS>
+ls <SDK_GEM_PATH>/docs/
+ls <SDK_GEM_PATH>/lib/generators/strata/
 ```
 
-Then:
+If a doc is missing or the generator inventory is empty, the gem version may be outdated — update the gem or pin to a version with the expected layout.
+
+## Step 6: Planning Phase (SDK-informed)
+
+Use the reference throughout. Every question below should already include the SDK's defaults so the user can simply confirm. Assume the user is **not** an expert on Strata application forms — explain each concept in one line before asking.
+
+Ask each question in sequence — wait for an answer before asking the next. Iterate until the user confirms.
+
+**6a. Application type and form name**
+
+> A Strata application form is a Rails model that extends `Strata::ApplicationForm` and represents one applicant's submission. **What program is this form for?** (e.g. unemployment benefits, SNAP, Medicaid, housing assistance, passport, business license, appeal, other)
+
+Derive `<PROGRAM>` (the bare program name, e.g. `Unemployment`, `Passport`). The SDK's `strata:application_form` and `strata:case` generators **auto-suffix** `ApplicationForm` and `Case` — pass the bare program name. Save `<PROGRAM>` and `<APP_TYPE>`. Final class names: `<PROGRAM>ApplicationForm`, `<PROGRAM>Case`, `<PROGRAM>BusinessProcess`.
+
+**6b. Attribute selection — propose SDK-supported defaults**
+
+> Each piece of data the form collects is a **Strata attribute** with a typed widget (e.g. `name`, `address`, `tax_id`, `memorable_date`, `money`). I'll suggest a starter set based on the SDK's catalog and `<APP_TYPE>`, then we'll refine it together. For fields the SDK doesn't cover (such as `email` or `phone`), we'll use standard Rails types.
+
+Propose a starter set from `<SDK_GEM_PATH>/docs/strata-attributes.md`. Common base:
+
+| Attribute | Strata type | Why |
+|-----------|-------------|-----|
+| `name` | `name` | Applicant full name |
+| `birth_date` | `memorable_date` | DOB |
+| `residential_address` | `address` | Mailing/residential |
+| `email` | `string` (Rails primitive) | Contact |
+| `phone` | `string` (Rails primitive) | Contact |
+
+Tailor by program (only if SDK supports the type):
+
+- **Unemployment:** last employer, last day worked, reason for separation, weekly earnings
+- **SNAP:** household size, monthly income, household members, expenses
+- **Medicaid:** household size, income, citizenship status, disability status
+
+Ask:
+
+> **Confirm this attribute list, or tell me what to add/remove. (yes / edit)**
+
+Save `<ATTRS>` as `name:type` pairs separated by spaces. Note primitive-type attributes in the plan — they won't get a Strata widget and need a plain form field.
+
+**6c. Attribute validations**
+
+> Each attribute can have Rails validations. Based on the attributes you chose, I'll propose sensible defaults — confirm or edit.
+
+Propose defaults:
+
+- Contact/identity (`name`, `email`, `phone`) → `presence: true`
+- `email` → format
+- `phone` → format
+- Numeric (income, household size) → `numericality: { greater_than: 0 }`
+- Date fields → `presence: true` if required
+
+Ask:
+
+> **Confirm these validations, or tell me what to add/remove. (yes / edit)**
+
+Save as `<VALIDATIONS>` map (`attr_name: [validation_list]`). TDD in Step 13 drives them.
+
+**6d. Form layout**
+
+> Application forms in this skill are built as a **single scrollable page** with one Submit button. This ensures a simple, robust implementation that matches our current documentation coverage. (Multi-page flows are out of scope for this skill.)
+
+Save `<FORM_LAYOUT>` as `single`.
+
+**6e. Entry point**
+
+> After sign-in, how should the user reach this form?
+>
+> 1. Landing page after login
+> 2. Link or card on an existing dashboard
+> 3. Button on a specific page (which one?)
+> 4. Other (describe)
+
+Save as `<ENTRY_POINT>`.
+
+**6f. Post-submission behavior**
+
+> When the user clicks Submit, the form transitions to `status: 'submitted'` and becomes immutable. **What should the user see immediately after?**
+>
+> 1. Confirmation/review page (read-only) showing every value entered
+> 2. Redirect to dashboard with a success flash
+> 3. Other (describe)
+
+Save as `<POST_SUBMIT>`.
+
+**6g. Return navigation**
+
+> If the user comes back later, the form is locked. **What should they see when they revisit the entry point?**
+>
+> 1. Submitted application read-only
+> 2. Blank form to start a new application
+> 3. List of all their submitted applications
+> 4. Other (describe)
+
+Save as `<RETURN_BEHAVIOR>`.
+
+**6h. Case and business process — required wiring**
+
+> Application forms must be tied to a **case** (one applicant's program instance), governed by a **business process** (the workflow rules).
+
+**i.** Check `app/business_processes/` for an existing BP. If found, confirm; else default to `<PROGRAM>BusinessProcess`. Save `<BUSINESS_PROCESS_NAME>`, `<BUSINESS_PROCESS_EXISTS>`.
+
+**ii.** Check `app/models/strata/` for an existing case. If found, confirm; else default to `<PROGRAM>Case`. Save `<CASE_NAME>`, `<CASE_EXISTS>`.
+
+**iii.** On submit: create a new case or attach to an existing one? Save `<CASE_TRIGGER>` (`create_new` / `attach_existing`).
+
+
+Re-prompt 6b/6c if any answer changes the attribute list.
+
+## Step 7: Write the plan
+
+Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<RAILS_DIR>/docs/<app-type>-application-form-plan.md`. Header must list:
+
+- `<APP_TYPE>` → `<FORM_NAME>`
+- `<ATTRS>` table (type + reason; flag primitives)
+- `<VALIDATIONS>` table
+- `<FORM_LAYOUT>`, `<ENTRY_POINT>`, `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`
+- `<BUSINESS_PROCESS_NAME>`, `<CASE_NAME>`, `<CASE_TRIGGER>`
+- Generators per artifact: `strata:application_form` for the model + migration; applicant controller and views generated separately (before the case); `strata:case` for the case model + staff dashboard + business process. We use a domain-driven philosophy where AF and Case have NO Rails relationships; they link via queries.
+- Pundit policy + spec + request spec for the form (see Section 6 of the SDK reference)
+- Out-of-scope items (tasks) listed but not built
+
+Tell the user:
+
+> Plan written to `docs/<app-type>-application-form-plan.md`. Reply **confirm** to begin, or describe changes and I'll update the plan.
+
+Iterate until the user confirms.
+
+## Step 8: Re-validate the plan against the SDK
+
+Walk the confirmed plan against the checklist in [`references/strata-sdk.md`](references/strata-sdk.md) Section 7 ("Plan validation checklist"). If any check fails, update the plan, re-confirm with the user, and repeat. Do not proceed to Step 9 until every check passes.
+
+## Step 9: Check what already exists
 
 ```sh
-bin/rails db:migrate
+find app/models/strata -type f -name "*case*.rb" 2>/dev/null
+find app/business_processes -type f -name "*business_process*.rb" 2>/dev/null
+find app/models/strata -type f -name "*application_form*.rb" 2>/dev/null
 ```
 
-If the migration fails, stop and report.
+Set `<CASE_EXISTS>`, `<BUSINESS_PROCESS_EXISTS>`, `<FORM_EXISTS>`. If user said something exists but grep finds nothing, stop and re-confirm.
 
-**TDD checkpoint:**
+## Step 10: Generate Application Form
+
+We follow a domain-driven philosophy: Application Form and Case models have NO Rails relationships (`belongs_to`/`has_many`). They are linked via queries. The Application Form must be created first.
+
+**10a. Run the application form generator:**
 
 ```sh
-make test
+bin/rails generate strata:application_form <PROGRAM> <ATTRS>
+```
+
+This produces the model at `app/models/strata/<program>_application_form.rb` and a migration with base attributes (`user_id`, `status`, `submitted_at`).
+
+**10b. Run migrations:** `bin/rails db:migrate`
+
+Migrations must run before generating controller/views.
+
+**10c. Generate the application form controller and views:**
+
+Follow Step 11 to generate the controller and views for the application form now, before proceeding to the case.
+
+**11a. Generate the controller and views:**
+
+```sh
+bin/rails generate scaffold <PROGRAM>ApplicationForm <ATTRS> --skip-migration --model-name=<PROGRAM>ApplicationForm
+```
+
+`--skip-migration` is mandatory — the migration already exists from Step 10.
+
+## Step 12: Generate Case
+
+**12a. Run the case generator:**
+
+The SDK's `strata:case` generator produces the case model, staff dashboard, and business process.
+
+```sh
+bin/rails generate strata:case <PROGRAM> --business-process <PROGRAM>BusinessProcess --skip-application-form
+```
+
+Since the Application Form already exists, we use `--skip-application-form`. Case base attrs (`application_form_id:uuid`, `status:integer`, `business_process_current_step:string`, `facts:jsonb`) are auto-injected — do not pass them to the generator. The `application_form_id` is used for query-based lookups, NOT as a Rails relationship.
+
+**12b. Run migrations:** `bin/rails db:migrate`
+
+**12c. Verify:** `make test && make lint`.
+
+## Step 13: TDD-strengthen the generated application form model
+
+The application form model and its baseline spec are generator output. Per [`references/test-driven-development.md`](references/test-driven-development.md), generator output may exist without a failing test first, but **every change from here is test-first**.
+
+**13a. Re-read** Section 3 ("Domain model") of [`references/strata-sdk.md`](references/strata-sdk.md) and `<SDK_GEM_PATH>/app/models/strata/application_form.rb` to confirm what `Strata::ApplicationForm` already provides.
+
+**13b. TDD loop** for each behavior the plan requires:
+
+1. Open `spec/models/strata/<program>_application_form_spec.rb`.
+2. Add or strengthen an example: each `<ATTRS>` declared with the correct `strata_attribute :name, :type`; each `<VALIDATIONS>` rule fires; submitting transitions `status` to `submitted`; post-submit edits raise.
+3. `make test` → watch fail for the right reason.
+4. Edit `app/models/strata/<program>_application_form.rb` until green.
+5. `make test` green → `make lint` green.
+6. Commit before next behavior.
+
+**Do NOT** add `belongs_to :<case>` to the application form. If the generated model extends `ApplicationRecord` instead of `Strata::ApplicationForm`, fix it inside the TDD loop.
+
+## Step 14: TDD-strengthen the case model and business process
+
+**14a. Case model** (`app/models/strata/<program>_case.rb`): TDD loop to verify
+
+- extends `Strata::Case`
+- has a query-based lookup method for the application form (e.g., `def application_form; <PROGRAM>ApplicationForm.find(application_form_id); end`)
+- `business_process` class method returns `<PROGRAM>BusinessProcess`
+
+**14b. Business process** (`app/business_processes/<program>_business_process.rb`): TDD loop to define each step from the plan (`applicant_task`, `system_process`, `staff_task`, transitions). Spec → fail → implement → green → lint → commit.
+
+**14c. Verify:** `make test && make lint` after each commit.
+
+## Step 15: Wire Pundit authorization (TDD)
+
+**Required before Step 16** — without a policy class, every applicant page raises `Pundit::NotDefinedError`. Follow Section 6 of [`references/strata-sdk.md`](references/strata-sdk.md) for full templates. TDD loops, in order: (1) ensure `pundit` + `pundit-matchers` (`:test`) in Gemfile and `app/policies/application_policy.rb` exists (`bin/rails g pundit:install` if not); (2) write the policy spec (four contexts), watch fail, create `<Program>ApplicationFormPolicy < ApplicationPolicy` with `include Strata::ApplicationFormPolicy`, watch green, lint, commit; (3) write a request spec asserting `authorize(form, :update?)` fires on `edit`/`update`. Negative cases: non-owner, unauthenticated, submitted.
+
+## Step 16: TDD-strengthen the applicant-facing form UI
+
+Step 11 produced the applicant-facing form scaffolding. This step drives every UI behavior via TDD.
+
+- `GET` form entry → 200 for authed user, redirect otherwise
+- `POST` valid → record created, `status: 'in_progress'`, `user_id` populated
+- `POST` invalid → re-render with errors
+- Each `<VALIDATIONS>` rule fires on invalid input
+- Submit action → `status` transitions to `submitted`, `submitted_at` set
+- Post-submit edit attempt → blocked by `prevent_changes_if_submitted`
+- `<POST_SUBMIT>`, `<RETURN_BEHAVIOR>`, `<ENTRY_POINT>` match the chosen options
+- **Attribute coverage:** for each attribute in `<ATTRS>`, a system spec asserts an input field with matching name/label exists in `GET <form>/new`. If a generated spec doesn't cover an attribute, add an example and watch it fail before editing the view.
+
+If a generated spec passes immediately without any code edit, the spec is too weak — strengthen it before moving on. Show route diffs and view edits to the user before saving.
+
+## Step 17: Verify
+
+```sh
 make lint
-```
-
-If specs that previously passed now fail because of the migration, fix the migration — do not weaken the specs.
-
-## Step 11: Generate views and wire up the entry point (TDD)
-
-Follow the SDK docs' recipe for views (controllers, views, routes). Apply TDD throughout — see [`references/test-driven-development.md`](references/test-driven-development.md).
-
-**11a. Write failing request and system specs FIRST.** Cover at least:
-
-- `GET <form>/new` returns 200 for authenticated user, redirects otherwise
-- `POST <form>` with valid `<ATTRS>` creates a record with `status: 'in_progress'`
-- `POST <form>` with invalid params re-renders the form and shows the error
-- Post-submit behavior per `<POST_SUBMIT>`:
-  - **Option 1 (confirmation page):** redirect to a review page showing submitted details
-  - **Option 2 (dashboard):** redirect to dashboard with a success flash message
-  - **Option 3 (other):** mirrors what the user described
-- Return navigation per `<RETURN_BEHAVIOR>`:
-  - **Option 1 (read-only view):** landing/dashboard shows link to the existing submitted application
-  - **Option 2 (new application):** landing/dashboard shows the new-form link even after prior submission
-  - **Option 3 (list):** landing/dashboard shows a list of all submitted applications
-  - **Option 4 (other):** mirrors what the user described
-- Entry point per `<ENTRY_POINT>`:
-  - **Option 1 (post-login landing):** after sign-in, user lands on the form
-  - **Option 2 (dashboard link/card):** dashboard shows the link/card and clicking it reaches the form
-  - **Option 3 (button on a page):** the named page shows the button and clicking it reaches the form
-  - **Option 4 (other):** spec mirrors what the user described
-
-Run `make test` — confirm all of the above **fail** for the right reasons.
-
-**11b. Implement minimum to pass each spec, one at a time:**
-
-1. Generate or hand-write the controller + views per the SDK docs (prefer the SDK scaffold generator if available).
-2. Add the route in `config/routes.rb`.
-3. Wire the entry point per `<ENTRY_POINT>`.
-4. Implement post-submit behavior per `<POST_SUBMIT>`.
-5. Implement return navigation per `<RETURN_BEHAVIOR>`.
-
-Show route changes and view edits to the user before saving.
-
-**11c. After each pass, run:**
-
-```sh
-make test
-make lint
-```
-
-Both must be green before moving to the next spec. If a spec passes immediately without an implementation change, the spec is wrong — rewrite it.
-
-## Step 12: Verify
-
-```sh
-make lint
 make test
 ```
 
-If either fails, stop and report.
+Both must pass. If either fails, stop and report.
 
-## Step 13: Report
+## Step 18: Report
 
-Before reporting, follow [`references/verification.md`](references/verification.md) to confirm `make lint` and `make test` both passed in the current message.
+Confirm `make lint` and `make test` both passed in the current message before reporting — see [`references/verification.md`](references/verification.md).
 
-> **Application form ready.** Run `make start-container` and visit the entry point you chose. The form lives at `app/models/strata/<form_name>.rb`. The build plan is at `docs/<app-type>-application-form-plan.md`. SDK reference docs are at `tmp/strata-sdk/docs/` — re-run `git -C tmp/strata-sdk pull` after upgrading the gem to keep docs in sync.
+> **Application form ready.** Run `make start-container` and visit the entry point. Application form: `app/models/strata/<program>_application_form.rb`. Case: `app/models/strata/<program>_case.rb`. BP: `app/business_processes/<program>_business_process.rb`. Policy: `app/policies/<program>_application_form_policy.rb`. Staff dashboard: `/staff/<program>_cases`. Applicant entry: per `<ENTRY_POINT>`. Plan: `docs/<app-type>-application-form-plan.md`. SDK reference: [`references/strata-sdk.md`](references/strata-sdk.md).
 
-## Common pitfalls
+## Common skill-procedure pitfalls
+
+For SDK pitfalls (auto-suffixing, generator chains, Pundit, view surfaces, etc.) see Section 8 of [`references/strata-sdk.md`](references/strata-sdk.md). The list below covers things specific to running this skill end-to-end.
 
 | Problem | Fix |
 |---------|-----|
-| `bin/rails generate strata:...` says command not found | Gem not installed — re-run `bundle install` |
-| Model extends `ApplicationRecord` instead of `Strata::ApplicationForm` | Edit model file, re-run tests |
-| Migration missing `status` / `user_id` / `submitted_at` | Re-generate migration with base columns |
-| Clone fails with auth error | Repo is public — check network, proxy, or VPN settings |
-| Doc file not found in `tmp/strata-sdk/docs/` | Run `ls tmp/strata-sdk/` to find actual doc layout; adapt paths |
-| SDK docs conflict with this skill | Docs win — they reflect the installed gem version |
+| Skill ran from monorepo root, generators failed | Step 2 was skipped — locate `<RAILS_DIR>` and re-run from there |
+| `make precompile-assets` skipped after gem install | Re-run before `make test` (Step 3b) — asset failures otherwise mask real regressions |
+| Plan re-validation in Step 8 keeps failing on the same row | Update the plan and re-confirm with the user; do not proceed by ignoring a failing check |
+| Generated spec passes on first run without a code edit | Spec is too weak — strengthen it (per `references/test-driven-development.md`) before moving on |
 
 ## Reference
 
+- Strata SDK reference: [`references/strata-sdk.md`](references/strata-sdk.md)
 - Strata SDK Rails (gem): https://github.com/navapbc/strata-sdk-rails
-- Local clone after Step 8: `tmp/strata-sdk/docs/`
+- Installed gem path (after Step 4): `<SDK_GEM_PATH>`
 - Build plan: `<RAILS_DIR>/docs/<app-type>-application-form-plan.md`
