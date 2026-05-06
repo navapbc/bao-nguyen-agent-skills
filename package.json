@@ -1,5 +1,25 @@
 {
+  "name": "bao-nguyen-agent-skills",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval-skills": "tsx scripts/eval_skills/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
-    "skills": "1.5.0"
+    "@cursor/sdk": "^1.0.0",
+    "js-yaml": "^4.1.0",
+    "skills": "1.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
   }
 }
