@@ -5,10 +5,14 @@ export interface SkillResult {
   result: AgentResult;
 }
 
+function escapeAnnotationValue(s: string): string {
+  return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
 function formatMessage(f: Finding): string {
-  let msg = `[${f.dimension}] ${f.message}`;
+  let msg = `[${f.dimension}] ${escapeAnnotationValue(f.message)}`;
   if (f.colliding_skill) {
-    msg += ` (collides with '${f.colliding_skill}')`;
+    msg += ` (collides with '${escapeAnnotationValue(f.colliding_skill)}')`;
   }
   return msg;
 }

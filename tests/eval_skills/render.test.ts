@@ -91,6 +91,25 @@ describe("renderAnnotations", () => {
     expect(lines[0]).toContain("collides with 'b'");
   });
 
+  it("escapes newlines and percent signs in messages", () => {
+    const lines = renderAnnotations([
+      {
+        path: "skills/demo/SKILL.md",
+        result: makeResult([
+          {
+            tier: "critical",
+            dimension: "B",
+            message: "line one\nline two %50",
+            recommendation: "fix",
+          },
+        ]),
+      },
+    ]);
+    expect(lines[0]).toBe(
+      "::error file=skills/demo/SKILL.md::[B] line one%0Aline two %2550",
+    );
+  });
+
   it("omits line= when line is absent", () => {
     const lines = renderAnnotations([
       {
