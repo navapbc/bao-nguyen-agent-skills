@@ -55,6 +55,27 @@ describe("buildSiblingIndex", () => {
     const idx = buildSiblingIndex(join(root, "skills"));
     expect(idx.map((s) => s.name)).toEqual(["alpha"]);
   });
+
+  it("skips skills whose frontmatter has invalid YAML", () => {
+    mkdirSync(join(root, "skills", "broken"), { recursive: true });
+    writeFileSync(
+      join(root, "skills", "broken", "SKILL.md"),
+      "---\nname: [unclosed bracket\ndescription: x\n---\n\nbody\n",
+    );
+    writeSkill("ok", "Fine.");
+    const idx = buildSiblingIndex(join(root, "skills"));
+    expect(idx.map((s) => s.name)).toEqual(["ok"]);
+  });
+
+  it("handles CRLF line endings in SKILL.md", () => {
+    mkdirSync(join(root, "skills", "crlf"), { recursive: true });
+    writeFileSync(
+      join(root, "skills", "crlf", "SKILL.md"),
+      "---\r\nname: crlf\r\ndescription: A skill with Windows line endings.\r\n---\r\n\r\nbody\r\n",
+    );
+    const idx = buildSiblingIndex(join(root, "skills"));
+    expect(idx.map((s) => s.name)).toEqual(["crlf"]);
+  });
 });
 
 describe("serializeSiblingIndex", () => {

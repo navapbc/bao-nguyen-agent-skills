@@ -14,10 +14,11 @@ interface Frontmatter {
 }
 
 function parseFrontmatter(content: string): Frontmatter {
-  if (!content.startsWith("---\n")) return {};
-  const end = content.indexOf("\n---", 4);
+  const normalized = content.replace(/\r\n/g, "\n");
+  if (!normalized.startsWith("---\n")) return {};
+  const end = normalized.indexOf("\n---", 4);
   if (end === -1) return {};
-  const block = content.slice(4, end);
+  const block = normalized.slice(4, end);
   try {
     const obj = yaml.load(block);
     if (obj && typeof obj === "object") return obj as Frontmatter;
