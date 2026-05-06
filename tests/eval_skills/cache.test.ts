@@ -77,4 +77,9 @@ describe("read/writeCache", () => {
     writeFileSync(join(dir, "abc.json"), "not json");
     expect(readCache(dir, "abc")).toBeNull();
   });
+
+  it("returns null when cached JSON is parseable but does not match the schema", () => {
+    writeFileSync(join(dir, "abc.json"), JSON.stringify({ wrong: "shape" }));
+    expect(readCache(dir, "abc")).toBeNull();
+  });
 });

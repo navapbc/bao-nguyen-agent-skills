@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import type { AgentResult } from "./schema.js";
+import { validateAgentResult } from "./schema.js";
 
 export const RUBRIC_VERSION = "1";
 
@@ -29,7 +30,9 @@ export function readCache(dir: string, key: string): AgentResult | null {
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, "utf8");
-    return JSON.parse(raw) as AgentResult;
+    const parsed = JSON.parse(raw) as unknown;
+    const validated = validateAgentResult(parsed);
+    return validated.ok ? validated.value : null;
   } catch {
     return null;
   }
