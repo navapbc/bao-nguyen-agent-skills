@@ -157,4 +157,36 @@ describe("orchestrate", () => {
     expect(out.exitCode).toBe(1);
     expect(out.results[0]?.result.findings[0]?.tier).toBe("critical");
   });
+
+  it("does not cache synthetic failures so the next run retries the agent", async () => {
+    const path = makeSkill("a", "A.");
+    const failingThenPassing = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, error: "transient" })
+      .mockResolvedValueOnce({ ok: true, value: passResult("a") });
+
+    const out1 = await orchestrate({
+      changedPaths: [path],
+      cacheDir: join(root, ".cache", "skill-eval"),
+      runAgent: failingThenPassing,
+      promptTemplate: "x",
+      repoRulesExcerpt: "",
+      rubric: "",
+    });
+    expect(out1.exitCode).toBe(1);
+    expect(failingThenPassing).toHaveBeenCalledTimes(1);
+
+    // Same input, second run — agent should be called again because
+    // the previous failure was not cached.
+    const out2 = await orchestrate({
+      changedPaths: [path],
+      cacheDir: join(root, ".cache", "skill-eval"),
+      runAgent: failingThenPassing,
+      promptTemplate: "x",
+      repoRulesExcerpt: "",
+      rubric: "",
+    });
+    expect(failingThenPassing).toHaveBeenCalledTimes(2);
+    expect(out2.exitCode).toBe(0);
+  });
 });

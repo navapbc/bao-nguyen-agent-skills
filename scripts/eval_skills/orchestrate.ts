@@ -104,7 +104,7 @@ export async function orchestrate(deps: OrchestrateDeps): Promise<OrchestrateOut
       });
 
       const result = out.ok ? out.value : syntheticFailure(path, out.error);
-      writeCache(deps.cacheDir, key, result);
+      if (out.ok) writeCache(deps.cacheDir, key, out.value);
       return { path, result };
     },
   );
