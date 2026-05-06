@@ -129,3 +129,80 @@ describe("renderAnnotations", () => {
     );
   });
 });
+
+import { renderComment } from "../../scripts/eval_skills/render.js";
+
+describe("renderComment", () => {
+  it("starts with the sticky marker", () => {
+    const out = renderComment([]);
+    expect(out.startsWith("<!-- skill-eval-bot -->")).toBe(true);
+  });
+
+  it("reports zero skills evaluated when input is empty", () => {
+    const out = renderComment([]);
+    expect(out).toContain("0 skills evaluated");
+  });
+
+  it("counts pass/warn/critical correctly", () => {
+    const out = renderComment([
+      {
+        path: "skills/a/SKILL.md",
+        result: makeResult([]),
+      },
+      {
+        path: "skills/b/SKILL.md",
+        result: {
+          ...makeResult([
+            {
+              tier: "major",
+              dimension: "A",
+              message: "vague",
+              recommendation: "fix",
+            },
+          ]),
+          overall: "warn",
+        },
+      },
+      {
+        path: "skills/c/SKILL.md",
+        result: {
+          ...makeResult([
+            {
+              tier: "critical",
+              dimension: "B",
+              message: "placeholder",
+              recommendation: "remove",
+            },
+          ]),
+          overall: "fail",
+        },
+      },
+    ]);
+    expect(out).toContain("3 skills evaluated");
+    expect(out).toContain("1 passed");
+    expect(out).toContain("1 warning");
+    expect(out).toContain("1 critical");
+  });
+
+  it("groups collision findings under dimension A with the colliding skill name", () => {
+    const out = renderComment([
+      {
+        path: "skills/x/SKILL.md",
+        result: {
+          ...makeResult([
+            {
+              tier: "critical",
+              dimension: "A",
+              colliding_skill: "y",
+              message: "shared trigger phrase",
+              recommendation: "narrow",
+            },
+          ]),
+          overall: "fail",
+        },
+      },
+    ]);
+    expect(out).toContain("Triggerability");
+    expect(out).toContain("collides with **y**");
+  });
+});
