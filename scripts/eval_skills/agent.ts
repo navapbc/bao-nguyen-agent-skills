@@ -43,6 +43,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
     res = await Agent.prompt(prompt, {
       apiKey,
       model: { id: "gemini-3-flash" },
+      local: { cwd: process.cwd() }
     });
   } catch (err) {
     logError(`agent SDK call failed for ${input.skillPath}`, err);
