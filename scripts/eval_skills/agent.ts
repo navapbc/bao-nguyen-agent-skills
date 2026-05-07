@@ -1,4 +1,4 @@
-import { Agent, type RunResult } from "@cursor/sdk";
+import { Agent, Cursor, type RunResult } from "@cursor/sdk";
 import { validateAgentResult } from "./schema.js";
 import type { AgentResult } from "./schema.js";
 import { log, logError } from "./log.js";
@@ -38,12 +38,26 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
     RUBRIC: input.rubric,
   });
 
+  try {
+    const me = await Cursor.me({ apiKey });
+    log(`key validated: apiKeyName=${me.apiKeyName}`);
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "non-Error";
+    const msg = err instanceof Error ? err.message || "(empty message)" : String(err);
+    if (err && typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      process.stderr.write(
+        `[skill-eval] preflight key validation failed: status=${e.status} code=${e.code} endpoint=${e.endpoint} requestId=${e.requestId}\n`
+      );
+    }
+    return { ok: false, error: `API key validation failed — ${name}: ${msg}` };
+  }
+
   let res: RunResult;
   try {
     res = await Agent.prompt(prompt, {
       apiKey,
       model: { id: "gemini-3-flash" },
-      local: { cwd: process.cwd() }
     });
   } catch (err) {
     logError(`agent SDK call failed for ${input.skillPath}`, err);
@@ -52,6 +66,12 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
       err instanceof Error
         ? err.message || "(empty message)"
         : String(err);
+    if (err && typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      process.stderr.write(
+        `[skill-eval] error details: status=${e.status} code=${e.code} endpoint=${e.endpoint} requestId=${e.requestId}\n`
+      );
+    }
     return { ok: false, error: `SDK threw ${name}: ${msg}` };
   }
 
