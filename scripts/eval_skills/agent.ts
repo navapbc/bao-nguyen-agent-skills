@@ -1,4 +1,4 @@
-import { Agent } from "@cursor/sdk";
+import { Agent, type RunResult } from "@cursor/sdk";
 import { validateAgentResult } from "./schema.js";
 import type { AgentResult } from "./schema.js";
 
@@ -24,6 +24,11 @@ function substitute(template: string, vars: Record<string, string>): string {
 }
 
 export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
+  const apiKey = process.env.CURSOR_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "CURSOR_API_KEY env var is not set" };
+  }
+
   const prompt = substitute(input.promptTemplate, {
     SKILL_PATH: input.skillPath,
     SKILL_CONTENT: input.skillContent,
@@ -32,21 +37,30 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
     RUBRIC: input.rubric,
   });
 
-  let raw: string;
+  let res: RunResult;
   try {
-    const res = await Agent.prompt(prompt, {
+    res = await Agent.prompt(prompt, {
+      apiKey,
+      model: { id: "composer-2" },
       local: { cwd: process.cwd() },
     });
-    if (!res.result) {
-      return { ok: false, error: "agent returned no result" };
-    }
-    raw = res.result;
   } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
     };
   }
+
+  if (res.status !== "finished") {
+    return {
+      ok: false,
+      error: `agent run ended with status "${res.status}"`,
+    };
+  }
+  if (!res.result) {
+    return { ok: false, error: "agent returned no result" };
+  }
+  const raw = res.result;
 
   let parsed: unknown;
   try {
