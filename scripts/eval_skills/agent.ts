@@ -25,7 +25,7 @@ function substitute(template: string, vars: Record<string, string>): string {
 }
 
 export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = process.env.CURSOR_API_KEY?.trim();
   if (!apiKey) {
     return { ok: false, error: "CURSOR_API_KEY env var is not set" };
   }
