@@ -84,14 +84,14 @@ jobs:
       - name: Find existing sticky comment
         id: find-comment
         if: always() && hashFiles('skill-eval-comment.md') != ''
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@v4
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body-includes: "<!-- skill-eval-bot -->"
 
       - name: Post sticky PR comment
         if: always() && hashFiles('skill-eval-comment.md') != ''
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body-path: skill-eval-comment.md
