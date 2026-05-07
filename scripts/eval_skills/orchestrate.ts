@@ -14,6 +14,7 @@ import { deriveExitCode } from "./exit.js";
 import type { SkillResult } from "./render.js";
 import type { AgentResult } from "./schema.js";
 import type { RunAgentOutput } from "./agent.js";
+import { log } from "./log.js";
 
 export interface OrchestrateDeps {
   changedPaths: string[];
@@ -69,7 +70,7 @@ function syntheticFailure(skillPath: string, reason: string): AgentResult {
       {
         tier: "critical",
         dimension: "A",
-        message: `agent evaluation failed: ${reason}`,
+        message: `agent evaluation failed for ${skillPath}: ${reason}`,
         recommendation: "Re-run the workflow; if persistent, check Cursor API status and rubric version.",
       },
     ],
@@ -85,6 +86,8 @@ export async function orchestrate(deps: OrchestrateDeps): Promise<OrchestrateOut
     deps.changedPaths,
     CONCURRENCY,
     async (path) => {
+      const t0 = Date.now();
+      log(`[${path}] start`);
       const absPath = join(process.cwd(), path);
       const skillContent = readFileSync(absPath, "utf8");
       const siblings = allSiblings.filter((s) => s.path !== absPath);
@@ -92,7 +95,10 @@ export async function orchestrate(deps: OrchestrateDeps): Promise<OrchestrateOut
       const key = cacheKey(skillContent, siblingIndexJson, RUBRIC_VERSION);
 
       const cached = readCache(deps.cacheDir, key);
-      if (cached) return { path, result: cached };
+      if (cached) {
+        log(`[${path}] cache hit (${Date.now() - t0}ms)`);
+        return { path, result: cached };
+      }
 
       const out = await deps.runAgent({
         skillPath: path,
@@ -102,6 +108,14 @@ export async function orchestrate(deps: OrchestrateDeps): Promise<OrchestrateOut
         repoRulesExcerpt: deps.repoRulesExcerpt,
         rubric: deps.rubric,
       });
+
+      if (out.ok) {
+        log(
+          `[${path}] ok overall=${out.value.overall} findings=${out.value.findings.length} (${Date.now() - t0}ms)`,
+        );
+      } else {
+        log(`[${path}] FAILED: ${out.error} (${Date.now() - t0}ms)`);
+      }
 
       const result = out.ok ? out.value : syntheticFailure(path, out.error);
       if (out.ok) writeCache(deps.cacheDir, key, out.value);

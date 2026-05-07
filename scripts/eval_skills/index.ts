@@ -6,6 +6,7 @@ import { parseChangedSkills } from "./diff.js";
 import { orchestrate } from "./orchestrate.js";
 import { renderAnnotations, renderComment } from "./render.js";
 import { runAgent } from "./agent.js";
+import { log, logError } from "./log.js";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(name);
@@ -20,12 +21,24 @@ async function main() {
     join(process.cwd(), "skill-eval-comment.md"),
   );
 
+  log(
+    `starting: baseRef=${baseRef} cacheDir=${cacheDir} commentFile=${commentFile}`,
+  );
+  log(
+    `CURSOR_API_KEY=${process.env.CURSOR_API_KEY ? "present" : "MISSING"}`,
+  );
+
   const diff = execFileSync(
     "git",
     ["diff", "--name-only", `${baseRef}...HEAD`, "--", "skills/*/SKILL.md"],
     { encoding: "utf8" },
   );
   const changedPaths = parseChangedSkills(diff);
+  log(
+    `changed skills (${changedPaths.length}): ${
+      changedPaths.join(", ") || "<none>"
+    }`,
+  );
 
   const promptTemplate = readFileSync(
     join(process.cwd(), "scripts", "skill_eval_prompt.md"),
@@ -52,10 +65,11 @@ async function main() {
 
   writeFileSync(commentFile, renderComment(results));
 
+  log(`done: exitCode=${exitCode}`);
   process.exit(exitCode);
 }
 
 main().catch((err) => {
-  process.stderr.write(`skill-eval failed: ${err}\n`);
+  logError("skill-eval crashed", err);
   process.exit(1);
 });

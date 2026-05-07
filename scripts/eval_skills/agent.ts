@@ -1,6 +1,7 @@
 import { Agent, type RunResult } from "@cursor/sdk";
 import { validateAgentResult } from "./schema.js";
 import type { AgentResult } from "./schema.js";
+import { log, logError } from "./log.js";
 
 export interface RunAgentInput {
   skillPath: string;
@@ -42,19 +43,26 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
     res = await Agent.prompt(prompt, {
       apiKey,
       model: { id: "gemini-3-flash" },
-      local: { cwd: process.cwd() },
     });
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    logError(`agent SDK call failed for ${input.skillPath}`, err);
+    const name = err instanceof Error ? err.name : "non-Error";
+    const msg =
+      err instanceof Error
+        ? err.message || "(empty message)"
+        : String(err);
+    return { ok: false, error: `SDK threw ${name}: ${msg}` };
   }
 
+  log(
+    `[${input.skillPath}] agent finished status=${res.status} resultLen=${res.result?.length ?? 0}`,
+  );
+
   if (res.status !== "finished") {
+    const preview = res.result ? `; result preview: ${res.result.slice(0, 200)}` : "";
     return {
       ok: false,
-      error: `agent run ended with status "${res.status}"`,
+      error: `agent run ended with status "${res.status}"${preview}`,
     };
   }
   if (!res.result) {
@@ -66,6 +74,9 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
   try {
     parsed = JSON.parse(raw);
   } catch {
+    process.stderr.write(
+      `[skill-eval] non-JSON agent output for ${input.skillPath} (raw, truncated to 2000 chars):\n${raw.slice(0, 2000)}\n`,
+    );
     return {
       ok: false,
       error: `agent returned non-JSON output: ${raw.slice(0, 200)}`,
@@ -73,6 +84,11 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
   }
 
   const v = validateAgentResult(parsed);
-  if (!v.ok) return { ok: false, error: v.error };
+  if (!v.ok) {
+    process.stderr.write(
+      `[skill-eval] schema validation failed for ${input.skillPath}; parsed object (truncated to 2000 chars):\n${JSON.stringify(parsed, null, 2).slice(0, 2000)}\n`,
+    );
+    return { ok: false, error: v.error };
+  }
   return { ok: true, value: v.value };
 }
