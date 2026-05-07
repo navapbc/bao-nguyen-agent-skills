@@ -41,7 +41,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
   try {
     res = await Agent.prompt(prompt, {
       apiKey,
-      model: { id: "composer-2" },
+      model: { id: "gemini-3-flash" },
       local: { cwd: process.cwd() },
     });
   } catch (err) {
