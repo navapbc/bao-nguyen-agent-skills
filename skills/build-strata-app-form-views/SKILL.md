@@ -16,6 +16,8 @@ Read these two references **before** writing any view code — together they are
 - Design patterns (one-question-per-page, save-and-exit, review-before-submit, error messaging, etc.): [`references/design-patterns.md`](references/design-patterns.md)
 - UI kit components (form-builder helpers, `Strata::US::TableComponent`, partials, USWDS tokens): [`references/ui-kit-components.md`](references/ui-kit-components.md)
 
+When the curated references don't fully detail something the user asked for, **read the SDK gem directly** in Step 6 — the gem is authoritative.
+
 **TDD is mandatory**: every page template is preceded by a failing request spec, and the flow ends with one full-flow system spec. See [`references/test-driven-development.md`](references/test-driven-development.md).
 
 **Plans are mandatory before code**: see [`references/writing-plans.md`](references/writing-plans.md).
@@ -196,7 +198,52 @@ Save as `<INCLUDE_DASHBOARD>` (default `true`).
 
 ---
 
-## Step 6: Write the plan
+## Step 6: Consult the SDK gem for any remaining gaps
+
+The curated references (`design-patterns.md`, `ui-kit-components.md`) cover the common path but cannot stay perfectly in sync with the gem. After Step 5, look at the confirmed scope and identify anything the curated refs do not fully detail — then read the gem directly at `<SDK_GEM_PATH>`. **The gem is authoritative**: if it contradicts a reference, trust the gem and update your understanding before writing the plan.
+
+**6a. Inventory the gem's view-layer surface area:**
+
+```sh
+ls <SDK_GEM_PATH>/lib/generators/strata/
+ls <SDK_GEM_PATH>/app/views/strata/shared/
+ls <SDK_GEM_PATH>/app/views/layouts/strata/ 2>/dev/null
+ls <SDK_GEM_PATH>/app/helpers/strata/
+ls <SDK_GEM_PATH>/app/components/strata/ 2>/dev/null
+ls <SDK_GEM_PATH>/lib/strata/flows/ 2>/dev/null
+ls <SDK_GEM_PATH>/docs/
+ls <SDK_GEM_PATH>/spec/dummy/app/ 2>/dev/null
+```
+
+**6b. Targeted reads by scope item.** For each piece of confirmed scope from Step 5, open the matching gem path and skim until you can describe the API in one paragraph:
+
+| Scope item | Read in the gem |
+|---|---|
+| Flow DSL (`task` / `question_page` / `depends_on` / `end_page` / `start_*`) | `<SDK_GEM_PATH>/docs/multi-page-form-flows.md`; `<SDK_GEM_PATH>/lib/strata/flows/application_form_flow.rb` (and siblings under `lib/strata/flows/`) |
+| `application_form_views` generator (Step 9 will run this) | `<SDK_GEM_PATH>/lib/generators/strata/application_form_views/USAGE` **and** `*_generator.rb` — USAGE files may be stale; the generator source is authoritative for flag spelling |
+| Form-builder helpers not covered by `ui-kit-components.md` | `<SDK_GEM_PATH>/app/helpers/strata/form_builder.rb`; `<SDK_GEM_PATH>/docs/strata-form-builder.md` |
+| Partial locals (step_indicator, form_buttons, exit_link) | `<SDK_GEM_PATH>/app/views/strata/shared/_step_indicator.html.erb`, `_form_buttons.html.erb`, `_exit_link.html.erb` |
+| Routes / named-route helpers the flow exposes | grep `<SDK_GEM_PATH>` for `flow_step_path`, read the engine's `config/routes.rb`, and any flow-routing module under `lib/strata/flows/` |
+| Draft-state semantics on the model | `<SDK_GEM_PATH>/app/models/strata/application_form.rb` |
+| `Strata::US::TableComponent` options (if `<INCLUDE_DASHBOARD>`) | `<SDK_GEM_PATH>/app/components/strata/us/table_component.rb` |
+| `Strata::ConditionalFieldComponent` (if any page uses `f.conditional`) | `<SDK_GEM_PATH>/app/components/strata/conditional_field_component.rb` |
+| Citizen layout shape (if `<LAYOUT_STRATEGY>` = create) | `<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb` (staff is the only one shipped — use as inspiration, not a copy) |
+| Canonical end-to-end examples | `<SDK_GEM_PATH>/spec/dummy/app/` (flows, views, controllers, locales) |
+
+**6c. Capture gaps as `<SDK_GAPS>`:**
+
+For each gap closed by reading the gem, record one row:
+
+| Gap | What the curated ref said (or omitted) | What the gem actually does | Affected plan task |
+|---|---|---|---|
+
+This table goes into the plan header in Step 7 so the engineer executing the plan inherits the same context.
+
+If the gem reveals a behavior that contradicts a curated reference, **do not silently rewrite the reference** — note the discrepancy in `<SDK_GAPS>` and flag it for the user. The references are part of this skill and need a deliberate update if the gem has moved on.
+
+---
+
+## Step 7: Write the plan
 
 Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<RAILS_DIR>/docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`.
 
@@ -204,6 +251,7 @@ The plan header must list:
 - `<MODEL_NAME>` (existing model), `<MODEL_PATH>`, `<FLOW_CLASS>`, `<FLOW_PATH>`
 - The full `<PAGES>` × `<TASKS>` matrix — one table row per `question_page` with its `task`, `depends_on`, fields, widgets, and the route `flow_step_path(:<page>)`
 - `<LAYOUT_STRATEGY>`, `<INCLUDE_REVIEW>`, `<INCLUDE_DASHBOARD>`, `<CONFIRMATION_COPY>`
+- `<SDK_GAPS>` table from Step 6 — every gap closed by reading the gem, with file references
 - Every locale key needed under `strata.application_forms.steps.*` (one per `question_page`) and any custom keys for review-section headings
 
 Each task in the plan must follow the TDD shape from `writing-plans.md`: failing spec → run red → minimal code → run green → commit. Pages are bite-sized — one page per task.
@@ -216,7 +264,7 @@ Iterate until confirmed.
 
 ---
 
-## Step 7: Check what already exists
+## Step 8: Check what already exists
 
 Before generating, look for collisions:
 
@@ -235,40 +283,40 @@ If any expected file already exists, ask the user how to proceed (overwrite vs. 
 
 ---
 
-## Step 8: Generate scaffolding
+## Step 9: Generate scaffolding
 
-**8a. Check for the SDK's `application_form_views` generator:**
+**9a. Check for the SDK's `application_form_views` generator:**
 
 ```sh
 ls <SDK_GEM_PATH>/lib/generators/strata/application_form_views/ 2>/dev/null && \
   cat <SDK_GEM_PATH>/lib/generators/strata/application_form_views/USAGE 2>/dev/null
 ```
 
-If the generator exists, read its `*_generator.rb` to learn the exact flag spelling (USAGE files may be stale). Typical invocation:
+If the generator exists, use the flag spelling you verified in Step 6b (USAGE may be stale; the `*_generator.rb` is authoritative). Typical invocation:
 
 ```sh
 bin/rails generate strata:application_form_views <PROGRAM>
 ```
 
-This typically produces: a controller, a `views/` directory with placeholder ERB per page, a route entry, and an English locale stub. After running, **diff every generated file against `<PAGES>`** — the generator's placeholders likely don't match your confirmed widgets. Continue to Step 9 for the TDD-driven edit pass.
+This typically produces: a controller, a `views/` directory with placeholder ERB per page, a route entry, and an English locale stub. After running, **diff every generated file against `<PAGES>`** — the generator's placeholders likely don't match your confirmed widgets. Continue to Step 10 for the TDD-driven edit pass.
 
-**8b. If the generator is absent**, hand-roll the scaffolding:
+**9b. If the generator is absent**, hand-roll the scaffolding:
 - Create `<FLOW_PATH>` with the `<FLOW_CLASS>` definition (one `task` block per `<TASKS>` entry, one `question_page` per `<PAGES>` entry, `end_page :review` if `<INCLUDE_REVIEW>`).
-- Add the routes per the SDK's flow conventions (read `<SDK_GEM_PATH>/docs/multi-page-form-flows.md` for the canonical route shape).
+- Add the routes per the SDK's flow conventions you read in Step 6b (`<SDK_GEM_PATH>/docs/multi-page-form-flows.md` and the flow-routing module).
 - Create one ERB template per page under `app/views/<MODEL_KEBAB>/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md).
 - Seed `config/locales/en.yml` with `strata.application_forms.steps.<page>` entries.
 
-**8c. Citizen layout (only if `<LAYOUT_STRATEGY>` = create):**
+**9c. Citizen layout (only if `<LAYOUT_STRATEGY>` = create):**
 
 Create `app/views/layouts/application.html.erb` and `app/views/shared/_header.html.erb` from the templates in [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Layout" and "Application Header".
 
-**8d. Dashboard (only if `<INCLUDE_DASHBOARD>`):**
+**9d. Dashboard (only if `<INCLUDE_DASHBOARD>`):**
 
 Create `app/controllers/dashboard_controller.rb` and `app/views/dashboard/index.html.erb` rendering `Strata::US::TableComponent` per [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Forms Index".
 
 ---
 
-## Step 9: TDD-build / strengthen the views
+## Step 10: TDD-build / strengthen the views
 
 Per [`references/test-driven-development.md`](references/test-driven-development.md): every page is built test-first.
 
@@ -298,7 +346,7 @@ Reminders pulled from [`references/design-patterns.md`](references/design-patter
 
 ---
 
-## Step 10: Verify
+## Step 11: Verify
 
 Per [`references/verification.md`](references/verification.md), before claiming done — run both, in this same message, and read the full output:
 
@@ -317,7 +365,7 @@ Then run a **visual walk-through** in Claude in Chrome:
 
 ---
 
-## Step 11: Report
+## Step 12: Report
 
 > **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, layout at `app/views/layouts/application.html.erb` (if created), dashboard at `app/views/dashboard/index.html.erb` (if included), review and confirmation pages (if included). Plan at `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
 
@@ -329,11 +377,13 @@ Then run a **visual walk-through** in Claude in Chrome:
 |---|---|---|
 | `bundle show strata` empty | Gem not in Gemfile, or `bundle install` skipped | Add `gem "strata"`, run `bundle install`, restart |
 | Skipped to view-building without finding a model | Skipped Step 3 — no `Strata::ApplicationForm` subclass exists | Stop. Run `build-strata-sdk-model` first |
+| Plan promised a flow feature the curated refs only hint at | Skipped Step 6 — went from intent straight to writing the plan | Re-open the gem at `<SDK_GEM_PATH>`, read the relevant file, and update the plan |
+| Generator flag `--foo` ignored or "unknown option" | USAGE file showed an outdated spelling | Read `*_generator.rb` in `<SDK_GEM_PATH>/lib/generators/strata/application_form_views/` for the authoritative `class_option` spelling |
 | Hand-wrote `usa-error-message` markup in a template | Form builder renders this automatically when the bound attribute has a validation error | Delete the hand-rolled markup; rely on `strata_form_with` + model `validates ... on: :<page>` |
 | Step indicator missing on a page | Forgot to render `strata/shared/step_indicator` partial | Add it at the top of every form page (after the layout's `<main>` open) |
 | Validation runs on every save and blocks partial drafts | Validation declared without an `on:` context | Add `on: :<page_name>` matching the `question_page` symbol so the SDK only fires it for that page's submit |
 | Save and Exit redirects to login or 404 | Forgot to render `strata/shared/exit_link` or pass `exit_path` local | Render the partial on every form page with `exit_path: dashboard_path` |
-| Review page edit links 404 | Used a raw path instead of `flow_step_path(:<page>)` | Use the flow's named-route helper from the SDK |
+| Review page edit links 404 | Used a raw path instead of `flow_step_path(:<page>)` | Use the flow's named-route helper from the SDK (verify in Step 6b) |
 | Confirmation page renders before submission completes | Tested the route by visiting it directly instead of submitting the form | Drive the test via Capybara's `click_on "Submit application"`, not `visit confirmation_path` |
 | Citizen layout reused the staff layout under `layouts/strata/staff.html.erb` | The SDK only ships the staff layout; using it on the citizen side leaks staff chrome | Create `app/views/layouts/application.html.erb` per [`references/ui-kit-components.md`](references/ui-kit-components.md) |
 | `make test` green on the very first run for a new page | Skipped the RED step — no failing spec was written before the template | Revert the template, re-run the spec, watch it fail, then re-implement |
@@ -349,6 +399,6 @@ Then run a **visual walk-through** in Claude in Chrome:
 - TDD: [`references/test-driven-development.md`](references/test-driven-development.md)
 - Plans: [`references/writing-plans.md`](references/writing-plans.md)
 - Verification: [`references/verification.md`](references/verification.md)
-- Strata SDK source: read directly from `<SDK_GEM_PATH>` — `lib/generators/strata/application_form_views/`, `app/views/strata/shared/`, `app/helpers/strata/form_builder.rb`, `docs/multi-page-form-flows.md`, `docs/strata-form-builder.md`.
+- Strata SDK source (authoritative — Step 6 reads these directly): `<SDK_GEM_PATH>/lib/generators/strata/application_form_views/`, `<SDK_GEM_PATH>/app/views/strata/shared/`, `<SDK_GEM_PATH>/app/helpers/strata/form_builder.rb`, `<SDK_GEM_PATH>/app/components/strata/`, `<SDK_GEM_PATH>/lib/strata/flows/`, `<SDK_GEM_PATH>/docs/multi-page-form-flows.md`, `<SDK_GEM_PATH>/docs/strata-form-builder.md`, `<SDK_GEM_PATH>/spec/dummy/app/`.
 - Strata SDK upstream: https://github.com/navapbc/strata-sdk-rails
 - Sibling skill (run this first if no model exists): [`build-strata-sdk-model`](../build-strata-sdk-model/SKILL.md)
