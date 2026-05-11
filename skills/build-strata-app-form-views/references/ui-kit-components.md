@@ -1,6 +1,6 @@
 # UI Kit Components Reference (Strata Rails SDK)
 
-This document describes the components used to build multi-page application portals with the **Strata Rails SDK** (installed as a gem; find its location with `bundle show strata` and refer to it as `<SDK_GEM_PATH>`). The companion HTML prototype and `design-patterns.md` show the same patterns in a React mock — this file is the production reference.
+This document describes the components used to build multi-page application portals with the **Strata Rails SDK** (installed as a gem; find its location with `bundle show strata` and refer to it as `<SDK_GEM_PATH>`). The companion `design-patterns.md` documents the pattern principles (one-page-per-question, save and exit, review before submit) — this file is the API reference for the SDK primitives that implement them. A static HTML prototype under `multi_page_strata_app_form_design_files/` provides a visual reference for the same patterns.
 
 All examples use ERB. The SDK is consumed as a **Rails engine** under the `Strata::` namespace.
 
