@@ -2,7 +2,7 @@
 
 This document outlines the design patterns used in the Strata SDK multi-page application forms, based on USWDS best practices and government service design standards.
 
-Code examples use the **Strata Rails SDK** (ERB + ViewComponent + `Strata::FormBuilder`). For the full API surface of each helper, partial, and ViewComponent referenced below, see [`skills/build-strata-app-form-views/references/ui-kit-components.md`](../skills/build-strata-app-form-views/references/ui-kit-components.md).
+Code examples use the **Strata Rails SDK** (ERB + ViewComponent + `Strata::FormBuilder`). For the full API surface of each helper, partial, and ViewComponent referenced below, see [`ui-kit-components.md`](ui-kit-components.md).
 
 ## Core Principles
 

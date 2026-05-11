@@ -1,6 +1,6 @@
 # UI Kit Components Reference (Strata Rails SDK)
 
-This document describes the components used to build multi-page application portals with the **Strata Rails SDK** (installed as a gem; find its location with `bundle show strata` and refer to it as `<SDK_GEM_PATH>`). The companion `design-patterns.md` documents the pattern principles (one-page-per-question, save and exit, review before submit) — this file is the API reference for the SDK primitives that implement them. A static HTML prototype under `multi_page_strata_app_form_design_files/` provides a visual reference for the same patterns.
+This document describes the components used to build multi-page application portals with the **Strata Rails SDK** (installed as a gem; find its location with `bundle show strata` and refer to it as `<SDK_GEM_PATH>`). The companion [`design-patterns.md`](design-patterns.md) documents the pattern principles (one-page-per-question, save and exit, review before submit) — this file is the API reference for the SDK primitives that implement them.
 
 All examples use ERB. The SDK is consumed as a **Rails engine** under the `Strata::` namespace.
 
@@ -343,7 +343,7 @@ JavaScript-enhanced single date picker. Input format is `MM/DD/YYYY`; stored as 
 
 ### `memorable_date`
 
-Three-field date entry (month dropdown, day input, year input) wrapped in a fieldset. This is the helper that matches the React prototype's `DateInput`.
+Three-field date entry (month dropdown, day input, year input) wrapped in a fieldset.
 
 ```erb
 <%= f.memorable_date :date_of_birth,
