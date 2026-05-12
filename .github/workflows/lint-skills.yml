@@ -5,25 +5,38 @@ on:
     paths:
       - "skills/**"
       - "scripts/lint_skills.py"
+      - "scripts/eval_skills/**"
+      - "scripts/skill_eval_prompt.md"
+      - "docs/skill-quality-rubric.md"
       - "tests/test_lint_skills.py"
+      - "tests/eval_skills/**"
       - ".github/workflows/lint-skills.yml"
   pull_request:
     paths:
       - "skills/**"
       - "scripts/lint_skills.py"
+      - "scripts/eval_skills/**"
+      - "scripts/skill_eval_prompt.md"
+      - "docs/skill-quality-rubric.md"
       - "tests/test_lint_skills.py"
+      - "tests/eval_skills/**"
       - ".github/workflows/lint-skills.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
 
 jobs:
   lint:
     name: Skill Linter
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install pytest
         run: pip install pytest
@@ -33,3 +46,54 @@ jobs:
 
       - name: Run skill linter
         run: python scripts/lint_skills.py
+
+  eval:
+    name: Skill Quality Agent
+    needs: lint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run driver tests
+        run: npm test
+
+      - name: Restore eval cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/skill-eval
+          key: skill-eval-${{ hashFiles('skills/**/SKILL.md', 'scripts/skill_eval_prompt.md', 'docs/skill-quality-rubric.md') }}
+          restore-keys: |
+            skill-eval-
+
+      - name: Run skill quality agent
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: npm run eval-skills -- --base-ref origin/${{ github.base_ref }}
+
+      - name: Find existing sticky comment
+        id: find-comment
+        if: always() && hashFiles('skill-eval-comment.md') != ''
+        uses: peter-evans/find-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: "<!-- skill-eval-bot -->"
+
+      - name: Post sticky PR comment
+        if: always() && hashFiles('skill-eval-comment.md') != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: skill-eval-comment.md
+          edit-mode: replace
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
