@@ -99,7 +99,7 @@ cat <MODEL_PATH>
 
 Capture for use in Step 4:
 - Every `strata_attribute :name, :type` and `attribute :name, :type` declaration
-- Every `validates ..., on: :<context>` — the `on:` symbols are the natural page boundaries (one `question_page` per context)
+- Every `validates :<attr>, <rule>, on: :<context>` — capture the full `(attribute, rule, on_context)` tuple. The `on:` symbols are both the natural page boundaries (one `question_page` per context) AND the task-completion gate: a `question_page` is only marked complete — and its parent task only flips to "Complete" — when every validation declared `on: :<page_name>` passes for the bound attributes. The frontend widgets you choose in Step 4 must mirror these same rules as HTML constraints so members see identical constraints client-side and server-side.
 - Any `has_many` / `belongs_to` (nested resources may need their own pages)
 - Any custom `before_submit` / `after_submit` callback (informs the confirmation page copy)
 
@@ -114,7 +114,7 @@ Read both heavyweight references in full before proposing pages:
 
 Then infer the page structure from Step 3c:
 
-**Page-boundary rule:** one `question_page` per distinct `on: :<context>` symbol found on the model's validations, **in declaration order**. The context name becomes the page name. Attributes without an `on:` context belong to the first page that mentions them, or to a catch-all `other` page at the end.
+**Page-boundary rule:** one `question_page` per distinct `on: :<context>` symbol found on the model's validations, **in declaration order**. The context name becomes the page name **verbatim** — `question_page :<name>` MUST equal `on: :<name>` or no validations will fire on submit, the page will pass "cleanly" with empty data, and the task will never gate completion. Attributes without an `on:` context belong to the first page that mentions them or to a catch-all `other` page at the end; flag these to the user in Step 5 since, lacking a context-scoped validation, they don't gate the page and you may want to add one.
 
 **Field-grouping rule:** within a page, group related attributes by their *typed* widget:
 - `:name`-typed columns → render with `f.name` (one helper for all four sub-fields)
@@ -126,15 +126,17 @@ Then infer the page structure from Step 3c:
 - string attribute backed by an enum or a known choice list → `f.radio_button` (≤ 5 options) or `f.select` (≥ 6 options)
 - everything else → `f.text_field` / `f.email_field` / `f.phone_field` / `f.text_area`
 
-Capture the proposal as a table you'll show the user in Step 5:
+**Frontend-mirrors-backend rule:** every `validates ..., on: :<page>` declaration must be surfaced as an HTML constraint on its widget — `required: true` for `presence`, `inputmode:` / `pattern:` for `format`, `min:` / `max:` for `numericality`, `maxlength:` for `length`, etc. The form-builder helpers in `ui-kit-components.md` accept these as standard options. This gives members instant client-side feedback for the same rules the model re-checks on submit; the SDK still re-renders `usa-error-message` from the model's `errors` collection when client-side checks are bypassed.
 
-| Page (`question_page`) | Attributes | Widget(s) |
-|---|---|---|
-| `:name` | `first_name`, `middle_name`, `last_name`, `suffix` | `f.name :applicant_name` |
-| `:date_of_birth` | `date_of_birth` | `f.memorable_date` |
-| `:contact` | `email`, `phone` | `f.email_field`, `f.text_field` (`inputmode: "tel"`) |
-| `:address` | `mailing_address_*` | `f.address_fields :mailing_address` |
-| … | … | … |
+Capture the proposal as a table you'll show the user in Step 5 — one row per `question_page`, with the **Validations** column making the completion gate explicit:
+
+| Page (`question_page` = `on:` context) | Attributes | Widget(s) | Validations (gate page completion) |
+|---|---|---|---|
+| `:name` | `first_name`, `middle_name`, `last_name`, `suffix` | `f.name :applicant_name` | `presence` on `first_name`, `last_name` (on: `:name`) |
+| `:date_of_birth` | `date_of_birth` | `f.memorable_date` | `presence`, `comparison(< Date.current)` (on: `:date_of_birth`) |
+| `:contact` | `email`, `phone` | `f.email_field`, `f.text_field` (`inputmode: "tel"`) | `presence` + `format(email)` on `email`; `presence` + `format(phone)` on `phone` (on: `:contact`) |
+| `:address` | `mailing_address_*` | `f.address_fields :mailing_address` | `presence` on each sub-field, `format(zip)` (on: `:address`) |
+| … | … | … | … |
 
 Save this table as `<PAGE_PROPOSAL>`.
 
@@ -144,13 +146,13 @@ Save this table as `<PAGE_PROPOSAL>`.
 
 Walk the user through the structure before writing anything. Lead each prompt with a one-line concept and propose the default from Step 4; let the user accept-or-edit.
 
-**5a. Confirm the page list and field grouping.**
+**5a. Confirm the page list, field grouping, and validation gates.**
 
 Show `<PAGE_PROPOSAL>` from Step 4 and ask:
 
-> Here's the proposed page structure (one `question_page` per validation context, grouped by typed widget). **Confirm or edit.** (yes / edit)
+> Here's the proposed page structure (one `question_page` per validation context, grouped by typed widget). The **Validations** column is the gate each page submit must pass before the user can advance — and the contract the frontend widgets will mirror as HTML constraints. **Confirm or edit.** (yes / edit)
 
-Iterate. Save the confirmed result as `<PAGES>` (ordered list of `{page_name, fields, widgets}` records).
+Iterate. Save the confirmed result as `<PAGES>` (ordered list of `{page_name, fields, widgets, validations}` records).
 
 **5b. Confirm the Flow class.**
 
@@ -160,9 +162,9 @@ Save as `<FLOW_CLASS>` and `<FLOW_PATH>`.
 
 **5c. Confirm the task grouping.**
 
-`question_page`s in the Strata DSL live inside `task` blocks. Each task can declare `depends_on:` to enforce ordering. Propose one task per logical section (e.g. `:personal_information`, `:contact`, `:household`, `:employment`) and ask:
+`question_page`s in the Strata DSL live inside `task` blocks. Each task can declare `depends_on:` to enforce ordering. A task is marked **Complete** only when every `question_page` in it has passed its `on: :<page>` validations — so the task list on the show page won't unlock downstream `depends_on` tasks until each prior task's validation contexts all pass for the current draft. Propose one task per logical section (e.g. `:personal_information`, `:contact`, `:household`, `:employment`) and ask:
 
-> Here's the proposed task grouping. Each task contains one or more question_pages, and later tasks depend_on earlier ones. **Confirm or edit.** (yes / edit)
+> Here's the proposed task grouping. Each task contains one or more question_pages, and later tasks depend_on earlier ones. A task only flips to "Complete" when every page's `on: :<page>` validations pass for the current draft. **Confirm or edit.** (yes / edit)
 
 Save as `<TASKS>` (ordered list of `{task_name, page_names, depends_on}` records).
 
@@ -262,7 +264,7 @@ Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<R
 
 The plan header must list:
 - `<MODEL_NAME>` (existing model), `<MODEL_PATH>`, `<FLOW_CLASS>`, `<FLOW_PATH>`
-- The full `<PAGES>` × `<TASKS>` matrix — one table row per `question_page` with its `task`, `depends_on`, fields, widgets, and the route `flow_step_path(:<page>)`
+- The full `<PAGES>` × `<TASKS>` matrix — one table row per `question_page` with its `task`, `depends_on`, fields, widgets, **validations** (the `on: :<page>` rules that gate page completion and must be mirrored as HTML constraints on each widget), and the route `flow_step_path(:<page>)`
 - `<LAYOUT_STRATEGY>`, `<INCLUDE_INDEX_PAGE>`, `<INCLUDE_SHOW_PAGE>`, `<INCLUDE_REVIEW>`, `<INCLUDE_CONFIRMATION>`, `<CONFIRMATION_COPY>`
 - A **routes-to-templates matrix** — every route the plan adds to `routes.rb`, the controller action that handles it, the template file it renders, and the request spec that proves it works. There must be **no orphan rows** (route with no template) and **no orphan specs** (spec with no route). Use the table from Step 9b as the template.
 - `<SDK_GAPS>` table from Step 6 — every gap closed by reading the gem, with file references
@@ -380,9 +382,9 @@ Per [`references/test-driven-development.md`](references/test-driven-development
 For each entry in `<PAGES>`, in order:
 
 1. Write a failing **request spec** at `spec/requests/<MODEL_KEBAB>s/<page_name>_spec.rb`:
-   - `GET` the page's `flow_step_path(:<page>)` and assert response 200 and that each expected label / hint / widget rendered (use `assert_select` or `have_selector` matchers against the USWDS classes from [`references/ui-kit-components.md`](references/ui-kit-components.md)).
-   - `PATCH` the page with invalid params and assert the page re-renders with the SDK's `usa-error-message` markup.
-   - `PATCH` the page with valid params and assert redirect to the next step.
+   - `GET` the page's `flow_step_path(:<page>)` and assert response 200, each expected label / hint / widget rendered (use `assert_select` or `have_selector` matchers against the USWDS classes from [`references/ui-kit-components.md`](references/ui-kit-components.md)), AND each `on: :<page>` validation's HTML mirror is present on its widget (`input[required]` for `presence`, `input[inputmode="email"]` / `input[pattern]` for `format`, `input[maxlength]` for `length`, etc.).
+   - `PATCH` the page with params that violate **each** `on: :<page>` validation in turn — one `context` block per rule — and assert the page re-renders with the SDK's `usa-error-message` markup containing the matching `activemodel.errors.models.<model>.attributes.<field>.<rule>` translation. This is the contract that proves backend and frontend agree on every rule.
+   - `PATCH` the page with valid params and assert redirect to the next step (proving the validation context passes and the task progresses).
 2. Run `make test spec/requests/<MODEL_KEBAB>s/<page_name>_spec.rb` — watch it fail for the right reason (missing template, missing route, missing locale key).
 3. Edit (or create) the page's ERB template with the minimum to pass — use the form-builder helpers from [`references/ui-kit-components.md`](references/ui-kit-components.md).
 4. Run the same spec — watch it pass.
@@ -472,6 +474,8 @@ End with a status message that **explicitly tells the user the browser URL** the
 | `flow_step_path` and the in-built "Review and Submit" link 404 or demand an explicit `locale:` arg | The application-form resources were nested inside `scope "(:locale)" do ... end` | Move them out to the top level of `Rails.application.routes.draw` per Step 9b's canonical pattern |
 | Show page renders two "Review and Submit" buttons stacked on top of each other | A submit button was hand-rolled alongside `Strata::Flows::TaskListComponent`, which already ships one | Delete the hand-rolled button; only `<%= render Strata::Flows::TaskListComponent.new(...) %>` |
 | Task rows render `translation missing: en.<model_plural>.task_section_component.<task>.title` (and the same for `.description`) | The host app did not define the per-task locale keys — these are NOT shipped by the gem | Add `<model_plural>.task_section_component.<task_name>.{title,description}` to `config/locales/en.yml`; the show-page request spec from Step 10 catches this before it ships |
+| Page submits accept empty / clearly-invalid data and advance, but the task never flips to "Complete" on the show page | `question_page :<name>` symbol does not match any `validates ... on: :<name>` context — no validations fire on submit, so the page "passes" with empty data and the task-completion gate is never reached | Rename either the `question_page` symbol or the `on:` context so they match verbatim. Step 10's "PATCH with invalid params" assertion catches this — if the page accepts garbage, the spec fails |
+| Frontend lets a member type past `maxlength` / pick a future DOB / submit a malformed email, only for the server to bounce them with `usa-error-message` | Widget did not mirror the model's `on: :<page>` validations as HTML constraints (`required:`, `inputmode:`, `pattern:`, `maxlength:`, `min:`/`max:`) | Apply the Step 4 "Frontend-mirrors-backend rule" — every validation declared `on: :<page>` gets a matching HTML attribute on its widget. Step 10's `GET` spec asserts each HTML mirror is present |
 
 ---
 
