@@ -65,8 +65,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # - name: Run driver tests
-      #   run: npm test
+      - name: Run driver tests
+        run: npm test
 
       - name: Restore eval cache
         uses: actions/cache@v5
