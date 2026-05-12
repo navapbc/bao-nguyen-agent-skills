@@ -39,3 +39,11 @@ Skill body (max 500 lines)...
 `tests/test_lint_skills.py` covers all 12 rules with valid/invalid fixture pairs using `tmp_path`.
 
 CI runs on push/PR when `skills/**`, `scripts/lint_skills.py`, or `tests/test_lint_skills.py` change.
+
+## Current Skills
+
+| Skill | Description |
+|-------|-------------|
+| `build-strata-rails-app` | Scaffolds a new Nava Strata application using nava-platform CLI and the navapbc/template-application-rails template |
+| `build-strata-sdk-model` | Adds a single Rails model — plain ActiveRecord, or a Strata SDK variant (application form, case, business process) |
+| `build-strata-app-form-views` | Builds views, flow, and routes for a Strata multi-page application form on top of an existing ApplicationForm model |
