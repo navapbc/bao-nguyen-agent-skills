@@ -48,8 +48,9 @@ npx skills update
 
 | Skill | Description |
 |-------|-------------|
-| `hello-world` | Print "Hello World" in 10 different languages |
-| `build-strata-rails-app` | Scaffold a new Nava Strata Rails app using nava-platform CLI |
+| `build-strata-rails-app` | Scaffolds a new Nava Strata application using nava-platform CLI and the navapbc/template-application-rails template |
+| `build-strata-sdk-model` | Adds a single Rails model to an existing Rails app — plain ActiveRecord, or a Strata SDK variant (application form, case, business process) |
+| `build-strata-app-form-views` | Builds views, flow, and routes for a Strata multi-page application form on top of an existing ApplicationForm model |
 
 ## Learn more
 

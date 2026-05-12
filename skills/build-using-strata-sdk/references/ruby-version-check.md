@@ -1,1 +1,0 @@
-../../../references/ruby-version-check.md
