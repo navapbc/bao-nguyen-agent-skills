@@ -7,7 +7,7 @@ description: Builds views, flow, and routes for a Strata multi-page application 
 
 ## Overview
 
-Builds the **view layer** for a Strata multi-page application form: the citizen-portal layout and shared header partial, the `Strata::Flows::ApplicationFormFlow`-based flow class that declares each `task` / `question_page`, one ERB template per page, a review page, a post-submit confirmation page, and an optional "My applications" dashboard.
+Builds the **view layer** for a Strata multi-page application form: the member-portal layout and shared header partial, the `Strata::Flows::ApplicationFormFlow`-based flow class that declares each `task` / `question_page`, one ERB template per page, a review page, a post-submit confirmation page, and an optional "My applications" dashboard.
 
 **Hard prerequisite:** an `ApplicationForm` subclass already exists in this Rails app (a class extending `Strata::ApplicationForm`). If it does not, **stop** and run [`build-strata-sdk-model`](../build-strata-sdk-model/SKILL.md) first — this skill builds views on top of an existing model and will not invent attributes.
 
@@ -168,9 +168,9 @@ Save as `<TASKS>` (ordered list of `{task_name, page_names, depends_on}` records
 
 **5d. Layout strategy.**
 
-The SDK ships only a **staff** layout (`<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb`). A citizen-portal layout is **not** provided — see [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Layout / Application Header" for the recommended pattern.
+The SDK ships only a **staff** layout (`<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb`). A member-portal layout is **not** provided — see [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Layout / Application Header" for the recommended pattern.
 
-> No citizen-portal layout exists. Options:
+> No member-portal layout exists. Options:
 > 1. Create `app/views/layouts/application.html.erb` + `app/views/shared/_header.html.erb` from the reference's recommended pattern (default).
 > 2. Skip — I'll reuse an existing layout you point me at.
 >
@@ -192,7 +192,7 @@ Save as `<INCLUDE_CONFIRMATION>` (default `true`). If yes, ask for the "what hap
 
 **5g. Application forms index page.**
 
-The canonical citizen entry point is the application form resource's own `:index` route (`/<model_kebab>s`) — this is where a member lands to see their applications and start a new one. The index template must render:
+The canonical member entry point is the application form resource's own `:index` route (`/<model_kebab>s`) — this is where a member lands to see their applications and start a new one. The index template must render:
 
 1. A **"Start a new application"** primary button linking to `new_<model_kebab>_path`.
 2. An **In-progress applications** section — every record where `submitted_at` is `nil`, rendered with `Strata::US::TableComponent` (columns: started date, last updated, "Continue" link → `<model_kebab>_path(form)`).
@@ -239,8 +239,9 @@ ls <SDK_GEM_PATH>/spec/dummy/app/ 2>/dev/null
 | Draft-state semantics on the model | `<SDK_GEM_PATH>/app/models/strata/application_form.rb` |
 | `Strata::US::TableComponent` options (if `<INCLUDE_INDEX_PAGE>`) | `<SDK_GEM_PATH>/app/components/strata/us/table_component.rb` |
 | `Strata::ConditionalFieldComponent` (if any page uses `f.conditional`) | `<SDK_GEM_PATH>/app/components/strata/conditional_field_component.rb` |
-| Citizen layout shape (if `<LAYOUT_STRATEGY>` = create) | `<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb` (staff is the only one shipped — use as inspiration, not a copy) |
+| Member layout shape (if `<LAYOUT_STRATEGY>` = create) | `<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb` (staff is the only one shipped — use as inspiration, not a copy) |
 | Canonical end-to-end examples | `<SDK_GEM_PATH>/spec/dummy/app/` (flows, views, controllers, locales) |
+| Member layout shape (if `<LAYOUT_STRATEGY>` = create) | `<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb` (staff is the only one shipped — use as inspiration, not a copy) |
 
 **6c. Capture gaps as `<SDK_GAPS>`:**
 
@@ -342,11 +343,11 @@ This typically produces: a controller, a `views/` directory with placeholder ERB
     end
   end
   ```
-- Create one ERB template **per `question_page`** under `app/views/<MODEL_KEBAB>s/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md). Pass `exit_path: <model_kebab>s_path` to the exit-link partial so Save & Exit lands the citizen back on the index page.
+- Create one ERB template **per `question_page`** under `app/views/<MODEL_KEBAB>s/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md). Pass `exit_path: <model_kebab>s_path` to the exit-link partial so Save & Exit lands the member back on the index page.
 - **Every route in the resources block must lead to a template.** If a route is declared in `routes.rb` it must have (a) a controller action, (b) a view template, and (c) a request spec in Step 10. Routes without templates are dead weight and will 500 on first click. The matrix:
   | Route | Template | Notes |
   |---|---|---|
-  | `index` (if `<INCLUDE_INDEX_PAGE>`) | `app/views/<MODEL_KEBAB>s/index.html.erb` | Citizen "My applications" — see next bullet |
+  | `index` (if `<INCLUDE_INDEX_PAGE>`) | `app/views/<MODEL_KEBAB>s/index.html.erb` | Member "My applications" — see next bullet |
   | `new` | n/a (controller redirects to first flow step via `create` → `flow_step_path`) | Or render a one-page intro/eligibility template if the user asked for one |
   | `show` (if `<INCLUDE_SHOW_PAGE>`) | `app/views/<MODEL_KEBAB>s/show.html.erb` | Task-list landing — see next bullet |
   | Each `question_page` | `app/views/<MODEL_KEBAB>s/<page>.html.erb` | Form page — see first bullet |
@@ -360,7 +361,7 @@ This typically produces: a controller, a `views/` directory with placeholder ERB
   - `<model_plural>.task_section_component.<task_name>.{title,description}` per task (TaskListComponent rows — host-defined)
   - `<model_kebab>.show.in_progress_title` and `<model_kebab>.show.in_progress_description` (show page heading)
 
-**9c. Citizen layout (only if `<LAYOUT_STRATEGY>` = create):**
+**9c. Member layout (only if `<LAYOUT_STRATEGY>` = create):**
 
 Create `app/views/layouts/application.html.erb` and `app/views/shared/_header.html.erb` from the templates in [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Layout" and "Application Header".
 
@@ -368,7 +369,7 @@ Create `app/views/layouts/application.html.erb` and `app/views/shared/_header.ht
 
 Create or extend `app/controllers/<MODEL_KEBAB>s_controller.rb`. The `index` action must expose `@in_progress_application_forms` and `@completed_application_forms`, both scoped to `current_user` — see the controller contract in [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Forms Index". `show` sets `@flow = <FLOW_CLASS>.new(@application_form)`. `create` builds a draft via `current_user.<model_kebab>s.create!` and redirects to the flow's first step. Per-page `edit`/`update` actions, `review`, and `submit` round out the controller.
 
-**Do NOT create a separate `DashboardController`** — earlier versions of this skill did, and it produced two competing landing pages. The application form resource's own `index` action IS the citizen-facing dashboard.
+**Do NOT create a separate `DashboardController`** — earlier versions of this skill did, and it produced two competing landing pages. The application form resource's own `index` action IS the member-facing dashboard.
 
 ---
 
@@ -430,7 +431,7 @@ Both must show fresh, complete output with zero failures.
 
 Then run a **visual walk-through** in Claude in Chrome:
 1. Boot `bin/dev` (or `bin/rails server`) in the background.
-2. **Start at the citizen index route** (`/<model_kebab>s`) in a new tab. Confirm: the "Start a new application" button is visible; if you have seed data, in-progress and completed sections render correctly.
+2. **Start at the member index route** (`/<model_kebab>s`) in a new tab. Confirm: the "Start a new application" button is visible; if you have seed data, in-progress and completed sections render correctly.
 3. Click "Start a new application" → land on the first flow step. Walk every page — confirm the step indicator updates, labels match the locale entries, validation errors render inline with `usa-error-message`, Back/Continue work, Save and Exit returns you to the index page and the form now appears in the In-progress section.
 4. Continue the in-progress form back to the review page, click an Edit link, come back, submit, and confirm the confirmation page renders the success alert with the reference number. Return to the index — the form should now appear in the Completed section.
 5. Capture any rendering bugs as new failing specs and fix inside the TDD loop — do not silently patch templates.
@@ -441,7 +442,7 @@ Then run a **visual walk-through** in Claude in Chrome:
 
 End with a status message that **explicitly tells the user the browser URL** they need to visit to start a new application. Derive the path by grepping `routes.rb` for the resource and using the Rails-generated helper (`<model_kebab>s_path`, normally `/<model_kebab>s`; prepend any host-app parent scope). If `<INCLUDE_INDEX_PAGE>` is `false`, report the direct entry path instead (`/<model_kebab>s/new` or the first `flow_step_path`) so the user always has a one-line way to reach the form. Suggested wording:
 
-> **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, citizen index at `app/views/<MODEL_KEBAB>s/index.html.erb`, show / review / confirmation pages as configured, and the citizen-portal layout (if `<LAYOUT_STRATEGY>` = create). Plan: `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
+> **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, member index at `app/views/<MODEL_KEBAB>s/index.html.erb`, show / review / confirmation pages as configured, and the member-portal layout (if `<LAYOUT_STRATEGY>` = create). Plan: `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
 >
 > **To start a new application in your browser, visit `http://localhost:3000/<model_kebab>s`** (boot the app with `bin/dev` if it isn't running; click "Start a new application" from the index page).
 
@@ -458,14 +459,14 @@ End with a status message that **explicitly tells the user the browser URL** the
 | Hand-wrote `usa-error-message` markup in a template | Form builder renders this automatically when the bound attribute has a validation error | Delete the hand-rolled markup; rely on `strata_form_with` + model `validates ... on: :<page>` |
 | Step indicator missing on a page | Forgot to render `strata/shared/step_indicator` partial | Add it at the top of every form page (after the layout's `<main>` open) |
 | Validation runs on every save and blocks partial drafts | Validation declared without an `on:` context | Add `on: :<page_name>` matching the `question_page` symbol so the SDK only fires it for that page's submit |
-| Save and Exit redirects to login or 404 | Forgot to render `strata/shared/exit_link` or pass `exit_path` local | Render the partial on every form page with `exit_path: <model_kebab>s_path` (the citizen index, NOT a separate `dashboard_path`) |
+| Save and Exit redirects to login or 404 | Forgot to render `strata/shared/exit_link` or pass `exit_path` local | Render the partial on every form page with `exit_path: <model_kebab>s_path` (the member index, NOT a separate `dashboard_path`) |
 | `<model_kebab>s#index` returns 500 / "Missing template" on first visit | Route declared in `resources :<model_kebab>s, only: [:index, ...]` but no `index.html.erb` was ever created | Every route in the resources block needs a template and a request spec — see Step 9b's route-to-template matrix. The index spec from Step 10 catches this in CI |
 | Index page renders but the "Start a new application" button isn't there | Template was scaffolded by the generator and only renders the tables — the button is host-app-defined, not gem-provided | Add `<%= link_to t("<model_kebab>s.index.start_new"), new_<model_kebab>_path, class: "usa-button" %>` at the top of the index template; the index request spec from Step 10 asserts the link exists |
-| Citizens see other users' applications in the in-progress / completed sections | Controller's `index` queries `<MODEL_NAME>.where(...)` directly instead of scoping through `current_user` | Always scope: `current_user.<model_kebab>s.where(submitted_at: nil)`. The index spec from Step 10 includes a third "other_user_form" fixture specifically to catch this leak |
+| Members see other users' applications in the in-progress / completed sections | Controller's `index` queries `<MODEL_NAME>.where(...)` directly instead of scoping through `current_user` | Always scope: `current_user.<model_kebab>s.where(submitted_at: nil)`. The index spec from Step 10 includes a third "other_user_form" fixture specifically to catch this leak |
 | Began writing templates immediately after the plan was saved | Skipped the Step 7 confirmation gate — the user hadn't replied "confirm" | Stop. Revert any uncommitted Step 8+ work. Re-ask the user to read the plan and reply with the literal word "confirm" before resuming |
 | Review page edit links 404 | Used a raw path instead of `flow_step_path(:<page>)` | Use the flow's named-route helper from the SDK (verify in Step 6b) |
 | Confirmation page renders before submission completes | Tested the route by visiting it directly instead of submitting the form | Drive the test via Capybara's `click_on "Submit application"`, not `visit confirmation_path` |
-| Citizen layout reused the staff layout under `layouts/strata/staff.html.erb` | The SDK only ships the staff layout; using it on the citizen side leaks staff chrome | Create `app/views/layouts/application.html.erb` per [`references/ui-kit-components.md`](references/ui-kit-components.md) |
+| Member layout reused the staff layout under `layouts/strata/staff.html.erb` | The SDK only ships the staff layout; using it on the member side leaks staff chrome | Create `app/views/layouts/application.html.erb` per [`references/ui-kit-components.md`](references/ui-kit-components.md) |
 | `make test` green on the very first run for a new page | Skipped the RED step — no failing spec was written before the template | Revert the template, re-run the spec, watch it fail, then re-implement |
 | Visual walk-through skipped because "lint and test are green" | `make test` doesn't catch CSS/USWDS regressions, locale typos, or wrong widget choices | Run the Claude-in-Chrome pass; do not claim done without it |
 | `flow_step_path` and the in-built "Review and Submit" link 404 or demand an explicit `locale:` arg | The application-form resources were nested inside `scope "(:locale)" do ... end` | Move them out to the top level of `Rails.application.routes.draw` per Step 9b's canonical pattern |

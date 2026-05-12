@@ -34,7 +34,7 @@ The Strata SDK provides four layers used by every page:
 
 ### Page Layout
 
-The SDK ships a staff layout at `app/views/layouts/strata/staff.html.erb`. Citizen-portal applications typically define their own layout following the same skeleton:
+The SDK ships a staff layout at `app/views/layouts/strata/staff.html.erb`. Member-portal applications typically define their own layout following the same skeleton:
 
 ```erb
 <!-- app/views/layouts/application.html.erb -->
@@ -69,7 +69,7 @@ Yield hooks worth knowing (from the staff layout): `:main_col_class`, `:content_
 
 ### Application Header
 
-> The SDK ships only a **staff-facing** header partial at `app/views/strata/staff/_header.html.erb`. A citizen-facing portal header (with dashboard link, account menu, language selector) is **not** provided — use the pattern below.
+> The SDK ships only a **staff-facing** header partial at `app/views/strata/staff/_header.html.erb`. A member-facing portal header (with dashboard link, account menu, language selector) is **not** provided — use the pattern below.
 
 **Recommended ERB pattern** — put in `app/views/shared/_header.html.erb`:
 
@@ -158,9 +158,9 @@ en:
 
 ## Index / List Pages
 
-### Application Forms Index (citizen "My applications")
+### Application Forms Index (member "My applications")
 
-The SDK doesn't ship a citizen-portal index component, but the pattern is template-based. This is the page a member lands on after sign-in — it lists their applications and is the only place to start a new one. Build it at `app/views/<model_kebab>s/index.html.erb`.
+The SDK doesn't ship a member-portal index component, but the pattern is template-based. This is the page a member lands on after sign-in — it lists their applications and is the only place to start a new one. Build it at `app/views/<model_kebab>s/index.html.erb`.
 
 **Controller contract.** The `index` action must expose two collections, both scoped to `current_user`:
 
@@ -577,7 +577,7 @@ Renders a `<hr>` divider above and a `usa-button-group` containing an outline Ba
 } %>
 ```
 
-`exit_path` should point at the citizen index page (`<model_kebab>s_path`, the application form resource's own `index` route — see "Application Forms Index" above), NOT a separate `dashboard_path`. The SDK persists draft state on every PATCH, so when the citizen returns to the index they'll see their in-progress form in the In-progress section.
+`exit_path` should point at the member index page (`<model_kebab>s_path`, the application form resource's own `index` route — see "Application Forms Index" above), NOT a separate `dashboard_path`. The SDK persists draft state on every PATCH, so when the member returns to the index they'll see their in-progress form in the In-progress section.
 
 Renders a `usa-link` with an `arrow_back` USWDS sprite icon.
 
