@@ -188,13 +188,19 @@ Save as `<INCLUDE_REVIEW>` (default `true`).
 
 > After submit, a confirmation page shows a success alert, reference number, and "what happens next" copy. Include it? (yes / no — default yes)
 
-If yes, ask for the "what happens next" copy (timeline, contact info). Save as `<CONFIRMATION_COPY>`.
+Save as `<INCLUDE_CONFIRMATION>` (default `true`). If yes, ask for the "what happens next" copy (timeline, contact info) and save as `<CONFIRMATION_COPY>`.
 
-**5g. Dashboard.**
+**5g. Application forms index page.**
 
-> A citizen dashboard lists the user's in-progress and submitted applications using `Strata::US::TableComponent`. Include it? (yes / no — default yes)
+The canonical citizen entry point is the application form resource's own `:index` route (`/<model_kebab>s`) — this is where a member lands to see their applications and start a new one. The index template must render:
 
-Save as `<INCLUDE_DASHBOARD>` (default `true`).
+1. A **"Start a new application"** primary button linking to `new_<model_kebab>_path`.
+2. An **In-progress applications** section — every record where `submitted_at` is `nil`, rendered with `Strata::US::TableComponent` (columns: started date, last updated, "Continue" link → `<model_kebab>_path(form)`).
+3. A **Completed applications** section — every record where `submitted_at` is present (columns: submitted date, reference number, "View" link → `<model_kebab>_path(form)`).
+
+> Include the application forms index page at `app/views/<model_kebab>s/index.html.erb`? (yes / no — default yes; **strongly recommended** because the `:index` action is already in the routes block from Step 9b and a route without a template is dead weight)
+
+Save as `<INCLUDE_INDEX_PAGE>` (default `true`). If the user declines, **remove `:index` from the resources block in Step 9b** so you don't ship an unreachable route.
 
 **5h. Show / landing page.**
 
@@ -231,7 +237,7 @@ ls <SDK_GEM_PATH>/spec/dummy/app/ 2>/dev/null
 | Partial locals (step_indicator, form_buttons, exit_link) | `<SDK_GEM_PATH>/app/views/strata/shared/_step_indicator.html.erb`, `_form_buttons.html.erb`, `_exit_link.html.erb` |
 | Routes / named-route helpers the flow exposes | grep `<SDK_GEM_PATH>` for `flow_step_path`, read the engine's `config/routes.rb`, and any flow-routing module under `lib/strata/flows/` |
 | Draft-state semantics on the model | `<SDK_GEM_PATH>/app/models/strata/application_form.rb` |
-| `Strata::US::TableComponent` options (if `<INCLUDE_DASHBOARD>`) | `<SDK_GEM_PATH>/app/components/strata/us/table_component.rb` |
+| `Strata::US::TableComponent` options (if `<INCLUDE_INDEX_PAGE>`) | `<SDK_GEM_PATH>/app/components/strata/us/table_component.rb` |
 | `Strata::ConditionalFieldComponent` (if any page uses `f.conditional`) | `<SDK_GEM_PATH>/app/components/strata/conditional_field_component.rb` |
 | Citizen layout shape (if `<LAYOUT_STRATEGY>` = create) | `<SDK_GEM_PATH>/app/views/layouts/strata/staff.html.erb` (staff is the only one shipped — use as inspiration, not a copy) |
 | Canonical end-to-end examples | `<SDK_GEM_PATH>/spec/dummy/app/` (flows, views, controllers, locales) |
@@ -256,19 +262,27 @@ Follow [`references/writing-plans.md`](references/writing-plans.md). Save to `<R
 The plan header must list:
 - `<MODEL_NAME>` (existing model), `<MODEL_PATH>`, `<FLOW_CLASS>`, `<FLOW_PATH>`
 - The full `<PAGES>` × `<TASKS>` matrix — one table row per `question_page` with its `task`, `depends_on`, fields, widgets, and the route `flow_step_path(:<page>)`
-- `<LAYOUT_STRATEGY>`, `<INCLUDE_REVIEW>`, `<INCLUDE_DASHBOARD>`, `<CONFIRMATION_COPY>`
+- `<LAYOUT_STRATEGY>`, `<INCLUDE_INDEX_PAGE>`, `<INCLUDE_SHOW_PAGE>`, `<INCLUDE_REVIEW>`, `<INCLUDE_CONFIRMATION>`, `<CONFIRMATION_COPY>`
+- A **routes-to-templates matrix** — every route the plan adds to `routes.rb`, the controller action that handles it, the template file it renders, and the request spec that proves it works. There must be **no orphan rows** (route with no template) and **no orphan specs** (spec with no route). Use the table from Step 9b as the template.
 - `<SDK_GAPS>` table from Step 6 — every gap closed by reading the gem, with file references
 - Every locale key needed:
   - `strata.application_forms.steps.<page>` per `question_page` (step indicator)
   - `<model_plural>.task_section_component.<task_name>.title` and `.description` per task in `<TASKS>` (TaskListComponent rows — these are host-defined; missing keys render as visible `translation missing: …` text)
   - `<model_kebab>.show.in_progress_title` and `<model_kebab>.show.in_progress_description` (if `<INCLUDE_SHOW_PAGE>`)
+  - `<model_kebab>s.index.start_new`, `<model_kebab>s.index.in_progress_heading`, `<model_kebab>s.index.completed_heading` (if `<INCLUDE_INDEX_PAGE>`)
   - Any custom keys for review-section headings
 
 Each task in the plan must follow the TDD shape from `writing-plans.md`: failing spec → run red → minimal code → run green → commit. Pages are bite-sized — one page per task.
 
-Tell the user:
+**Pause for user review.** This is a hard stop — do not write any code (no templates, no specs, no controllers, no routes) until the user has read the plan and replied with explicit confirmation. Tell the user:
 
-> Plan written to `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. Reply **confirm** to begin, or describe changes.
+> Plan written to `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`.
+>
+> **Please open and read the full plan before I continue.** Pay attention to the page × task matrix, the locale keys, and the `<SDK_GAPS>` table — those are the bits most likely to surprise you.
+>
+> When you're ready, reply **"confirm"** (literal word) to begin Step 8. Reply with anything else — corrections, questions, "looks good but change X" — and I will revise the plan and re-ask. I will not start building until I see your explicit "confirm".
+
+If the user replies with anything other than "confirm" (including "yes", "ok", "looks good", "go ahead"), treat it as feedback or a request for changes and iterate — do not advance to Step 8. Only the literal word "confirm" (case-insensitive) unblocks the build.
 
 Iterate until confirmed.
 
@@ -282,8 +296,10 @@ Before generating, look for collisions:
 ls app/views/layouts/application.html.erb \
    app/views/shared/_header.html.erb \
    <FLOW_PATH> \
-   app/controllers/<MODEL_KEBAB>_controller.rb \
-   app/views/<MODEL_KEBAB>/ \
+   app/controllers/<MODEL_KEBAB>s_controller.rb \
+   app/views/<MODEL_KEBAB>s/ \
+   app/views/<MODEL_KEBAB>s/index.html.erb \
+   app/views/<MODEL_KEBAB>s/show.html.erb \
    config/locales/en.yml \
    2>/dev/null
 grep -n "strata\|<MODEL_KEBAB>" config/routes.rb 2>/dev/null
@@ -326,8 +342,19 @@ This typically produces: a controller, a `views/` directory with placeholder ERB
     end
   end
   ```
-- Create one ERB template **per `question_page`** under `app/views/<MODEL_KEBAB>/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md).
-- If `<INCLUDE_SHOW_PAGE>`, create `app/views/<MODEL_KEBAB>/show.html.erb` rendering `Strata::Flows::TaskListComponent.new(flow: @flow, show_step_label: true)` per [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Form Show Page". **Do NOT add a separate "Review and Submit" button — the component ships one and disables it until `@flow.completed?`.**
+- Create one ERB template **per `question_page`** under `app/views/<MODEL_KEBAB>s/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md). Pass `exit_path: <model_kebab>s_path` to the exit-link partial so Save & Exit lands the citizen back on the index page.
+- **Every route in the resources block must lead to a template.** If a route is declared in `routes.rb` it must have (a) a controller action, (b) a view template, and (c) a request spec in Step 10. Routes without templates are dead weight and will 500 on first click. The matrix:
+  | Route | Template | Notes |
+  |---|---|---|
+  | `index` (if `<INCLUDE_INDEX_PAGE>`) | `app/views/<MODEL_KEBAB>s/index.html.erb` | Citizen "My applications" — see next bullet |
+  | `new` | n/a (controller redirects to first flow step via `create` → `flow_step_path`) | Or render a one-page intro/eligibility template if the user asked for one |
+  | `show` (if `<INCLUDE_SHOW_PAGE>`) | `app/views/<MODEL_KEBAB>s/show.html.erb` | Task-list landing — see next bullet |
+  | Each `question_page` | `app/views/<MODEL_KEBAB>s/<page>.html.erb` | Form page — see first bullet |
+  | `review` (if `<INCLUDE_REVIEW>`) | `app/views/<MODEL_KEBAB>s/review.html.erb` | Section-per-task summary with Edit links |
+  | `submit` | n/a (controller transitions state and redirects to confirmation) | |
+  | Confirmation (if `<INCLUDE_CONFIRMATION>`) | `app/views/<MODEL_KEBAB>s/confirmation.html.erb` | Success alert + reference number |
+- If `<INCLUDE_INDEX_PAGE>`, create `app/views/<MODEL_KEBAB>s/index.html.erb` per [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Forms Index". The controller's `index` action must expose two collections — `@in_progress_application_forms` (records where `submitted_at` is nil, scoped to `current_user`) and `@completed_application_forms` (records where `submitted_at` is present, scoped to `current_user`). The template renders a "Start a new application" primary button linking to `new_<model_kebab>_path`, then a `Strata::US::TableComponent` for each collection (omit the section if its collection is empty, but always render the "Start new" button).
+- If `<INCLUDE_SHOW_PAGE>`, create `app/views/<MODEL_KEBAB>s/show.html.erb` rendering `Strata::Flows::TaskListComponent.new(flow: @flow, show_step_label: true)` per [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Form Show Page". **Do NOT add a separate "Review and Submit" button — the component ships one and disables it until `@flow.completed?`.**
 - Seed `config/locales/en.yml` with:
   - `strata.application_forms.steps.<page>` per question page (step indicator)
   - `<model_plural>.task_section_component.<task_name>.{title,description}` per task (TaskListComponent rows — host-defined)
@@ -337,9 +364,11 @@ This typically produces: a controller, a `views/` directory with placeholder ERB
 
 Create `app/views/layouts/application.html.erb` and `app/views/shared/_header.html.erb` from the templates in [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Layout" and "Application Header".
 
-**9d. Dashboard (only if `<INCLUDE_DASHBOARD>`):**
+**9d. Controller (always required):**
 
-Create `app/controllers/dashboard_controller.rb` and `app/views/dashboard/index.html.erb` rendering `Strata::US::TableComponent` per [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Forms Index".
+Create or extend `app/controllers/<MODEL_KEBAB>s_controller.rb`. The `index` action must expose `@in_progress_application_forms` and `@completed_application_forms`, both scoped to `current_user` — see the controller contract in [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Forms Index". `show` sets `@flow = <FLOW_CLASS>.new(@application_form)`. `create` builds a draft via `current_user.<model_kebab>s.create!` and redirects to the flow's first step. Per-page `edit`/`update` actions, `review`, and `submit` round out the controller.
+
+**Do NOT create a separate `DashboardController`** — earlier versions of this skill did, and it produced two competing landing pages. The application form resource's own `index` action IS the citizen-facing dashboard.
 
 ---
 
@@ -349,24 +378,31 @@ Per [`references/test-driven-development.md`](references/test-driven-development
 
 For each entry in `<PAGES>`, in order:
 
-1. Write a failing **request spec** at `spec/requests/<MODEL_KEBAB>/<page_name>_spec.rb`:
+1. Write a failing **request spec** at `spec/requests/<MODEL_KEBAB>s/<page_name>_spec.rb`:
    - `GET` the page's `flow_step_path(:<page>)` and assert response 200 and that each expected label / hint / widget rendered (use `assert_select` or `have_selector` matchers against the USWDS classes from [`references/ui-kit-components.md`](references/ui-kit-components.md)).
    - `PATCH` the page with invalid params and assert the page re-renders with the SDK's `usa-error-message` markup.
    - `PATCH` the page with valid params and assert redirect to the next step.
-2. Run `make test spec/requests/<MODEL_KEBAB>/<page_name>_spec.rb` — watch it fail for the right reason (missing template, missing route, missing locale key).
+2. Run `make test spec/requests/<MODEL_KEBAB>s/<page_name>_spec.rb` — watch it fail for the right reason (missing template, missing route, missing locale key).
 3. Edit (or create) the page's ERB template with the minimum to pass — use the form-builder helpers from [`references/ui-kit-components.md`](references/ui-kit-components.md).
 4. Run the same spec — watch it pass.
 5. Run `make lint`.
 6. Commit with a one-sentence message naming the page added.
 7. Repeat for the next page.
 
-If `<INCLUDE_SHOW_PAGE>`, after all `question_page` specs pass, write a failing **show-page request spec** at `spec/requests/<MODEL_KEBAB>/show_spec.rb`:
+If `<INCLUDE_INDEX_PAGE>`, write a failing **index-page request spec** at `spec/requests/<MODEL_KEBAB>s/index_spec.rb` with two `context` blocks:
+
+1. **Empty state** — no application forms exist for `current_user`. `GET <model_kebab>s_path` returns 200, the body contains a link to `new_<model_kebab>_path` with text `I18n.t("<model_kebab>s.index.start_new")`, and `response.body` contains no `<table>` element.
+2. **Populated state** — create three fixtures: an in-progress form for `current_user` (`submitted_at: nil`), a completed form for `current_user` (`submitted_at: 1.day.ago`), and a third form belonging to a **different user**. Assert: the Start-new link still renders; both `in_progress_heading` and `completed_heading` i18n values appear in the body; the in-progress row links to `<model_kebab>_path(in_progress)` with text `Continue`; the completed row links to `<model_kebab>_path(completed)` with text `View`; **and the third user's form path does NOT appear in the body** (this catches scope leaks).
+
+Run, watch fail (likely "missing template" or "translation missing"), implement against [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Forms Index", run green, commit.
+
+If `<INCLUDE_SHOW_PAGE>`, after all `question_page` specs pass, write a failing **show-page request spec** at `spec/requests/<MODEL_KEBAB>s/show_spec.rb`:
 
 - `GET` the application form's show path. Assert response 200 and that `Strata::Flows::TaskListComponent`'s root element renders (USWDS class `usa-collection`).
 - For **each task in `<TASKS>`**, assert the response body contains the value of `I18n.t("<model_plural>.task_section_component.<task_name>.title")` and `I18n.t("<model_plural>.task_section_component.<task_name>.description")`. Use `I18n.t(...)` (not hardcoded strings) so the assertion fails loudly if the host-app key is missing OR the template stops reading from i18n.
 - Assert the "Review and Submit" button is present on a fresh record and **disabled** (look for `disabled="disabled"` or the USWDS `usa-button[disabled]` selector).
 - Build a factory-stage helper that marks every task complete (e.g. fills every required attribute), then re-`GET` the show page and assert the same button is now **enabled**.
-- Run `make test spec/requests/<MODEL_KEBAB>/show_spec.rb` — watch it fail (likely "translation missing" or missing template), fix by adding the keys and rendering the component, run green, commit.
+- Run `make test spec/requests/<MODEL_KEBAB>s/show_spec.rb` — watch it fail (likely "translation missing" or missing template), fix by adding the keys and rendering the component, run green, commit.
 
 After all pages pass, write **one** system spec at `spec/system/<MODEL_KEBAB>_flow_spec.rb` that walks the entire flow end-to-end: visits the first step, fills + submits each page in order, lands on the review page, clicks an Edit link, comes back, submits, and lands on the confirmation page with the success alert. Run, watch fail, fix, run green, commit.
 
@@ -394,15 +430,20 @@ Both must show fresh, complete output with zero failures.
 
 Then run a **visual walk-through** in Claude in Chrome:
 1. Boot `bin/dev` (or `bin/rails server`) in the background.
-2. Navigate to the flow's entry route in a new tab.
-3. Walk every page — confirm the step indicator updates, labels match the locale entries, validation errors render inline with `usa-error-message`, Back/Continue work, Save and Exit redirects to the dashboard, the review page edit links jump correctly, and the confirmation page renders the success alert with the reference number.
-4. Capture any rendering bugs as new failing specs and fix inside the TDD loop — do not silently patch templates.
+2. **Start at the citizen index route** (`/<model_kebab>s`) in a new tab. Confirm: the "Start a new application" button is visible; if you have seed data, in-progress and completed sections render correctly.
+3. Click "Start a new application" → land on the first flow step. Walk every page — confirm the step indicator updates, labels match the locale entries, validation errors render inline with `usa-error-message`, Back/Continue work, Save and Exit returns you to the index page and the form now appears in the In-progress section.
+4. Continue the in-progress form back to the review page, click an Edit link, come back, submit, and confirm the confirmation page renders the success alert with the reference number. Return to the index — the form should now appear in the Completed section.
+5. Capture any rendering bugs as new failing specs and fix inside the TDD loop — do not silently patch templates.
 
 ---
 
 ## Step 12: Report
 
-> **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, layout at `app/views/layouts/application.html.erb` (if created), show page at `app/views/<model_kebab>/show.html.erb` rendering `Strata::Flows::TaskListComponent` (if included), dashboard at `app/views/dashboard/index.html.erb` (if included), review and confirmation pages (if included). Plan at `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
+End with a status message that **explicitly tells the user the browser URL** they need to visit to start a new application. Derive the path by grepping `routes.rb` for the resource and using the Rails-generated helper (`<model_kebab>s_path`, normally `/<model_kebab>s`; prepend any host-app parent scope). If `<INCLUDE_INDEX_PAGE>` is `false`, report the direct entry path instead (`/<model_kebab>s/new` or the first `flow_step_path`) so the user always has a one-line way to reach the form. Suggested wording:
+
+> **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, citizen index at `app/views/<MODEL_KEBAB>s/index.html.erb`, show / review / confirmation pages as configured, and the citizen-portal layout (if `<LAYOUT_STRATEGY>` = create). Plan: `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
+>
+> **To start a new application in your browser, visit `http://localhost:3000/<model_kebab>s`** (boot the app with `bin/dev` if it isn't running; click "Start a new application" from the index page).
 
 ---
 
@@ -417,7 +458,11 @@ Then run a **visual walk-through** in Claude in Chrome:
 | Hand-wrote `usa-error-message` markup in a template | Form builder renders this automatically when the bound attribute has a validation error | Delete the hand-rolled markup; rely on `strata_form_with` + model `validates ... on: :<page>` |
 | Step indicator missing on a page | Forgot to render `strata/shared/step_indicator` partial | Add it at the top of every form page (after the layout's `<main>` open) |
 | Validation runs on every save and blocks partial drafts | Validation declared without an `on:` context | Add `on: :<page_name>` matching the `question_page` symbol so the SDK only fires it for that page's submit |
-| Save and Exit redirects to login or 404 | Forgot to render `strata/shared/exit_link` or pass `exit_path` local | Render the partial on every form page with `exit_path: dashboard_path` |
+| Save and Exit redirects to login or 404 | Forgot to render `strata/shared/exit_link` or pass `exit_path` local | Render the partial on every form page with `exit_path: <model_kebab>s_path` (the citizen index, NOT a separate `dashboard_path`) |
+| `<model_kebab>s#index` returns 500 / "Missing template" on first visit | Route declared in `resources :<model_kebab>s, only: [:index, ...]` but no `index.html.erb` was ever created | Every route in the resources block needs a template and a request spec — see Step 9b's route-to-template matrix. The index spec from Step 10 catches this in CI |
+| Index page renders but the "Start a new application" button isn't there | Template was scaffolded by the generator and only renders the tables — the button is host-app-defined, not gem-provided | Add `<%= link_to t("<model_kebab>s.index.start_new"), new_<model_kebab>_path, class: "usa-button" %>` at the top of the index template; the index request spec from Step 10 asserts the link exists |
+| Citizens see other users' applications in the in-progress / completed sections | Controller's `index` queries `<MODEL_NAME>.where(...)` directly instead of scoping through `current_user` | Always scope: `current_user.<model_kebab>s.where(submitted_at: nil)`. The index spec from Step 10 includes a third "other_user_form" fixture specifically to catch this leak |
+| Began writing templates immediately after the plan was saved | Skipped the Step 7 confirmation gate — the user hadn't replied "confirm" | Stop. Revert any uncommitted Step 8+ work. Re-ask the user to read the plan and reply with the literal word "confirm" before resuming |
 | Review page edit links 404 | Used a raw path instead of `flow_step_path(:<page>)` | Use the flow's named-route helper from the SDK (verify in Step 6b) |
 | Confirmation page renders before submission completes | Tested the route by visiting it directly instead of submitting the form | Drive the test via Capybara's `click_on "Submit application"`, not `visit confirmation_path` |
 | Citizen layout reused the staff layout under `layouts/strata/staff.html.erb` | The SDK only ships the staff layout; using it on the citizen side leaks staff chrome | Create `app/views/layouts/application.html.erb` per [`references/ui-kit-components.md`](references/ui-kit-components.md) |

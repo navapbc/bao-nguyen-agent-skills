@@ -92,7 +92,7 @@ Yield hooks worth knowing (from the staff layout): `:main_col_class`, `:content_
 
       <ul class="usa-nav__primary usa-accordion">
         <li class="usa-nav__primary-item">
-          <%= link_to "Dashboard", dashboard_path, class: "usa-nav-link" %>
+          <%= link_to "My applications", <model_kebab>s_path, class: "usa-nav-link" %>
         </li>
         <li class="usa-nav__primary-item">
           <%= link_to "My account", account_path, class: "usa-nav-link" %>
@@ -156,22 +156,114 @@ en:
 
 ---
 
-## Dashboard / List Pages
+## Index / List Pages
 
 ### Application Forms Index (citizen "My applications")
 
-The SDK doesn't ship a citizen-portal dashboard component, but the pattern used by SDK generators is template-based. Render an `index.html.erb` with these locals:
+The SDK doesn't ship a citizen-portal index component, but the pattern is template-based. This is the page a member lands on after sign-in — it lists their applications and is the only place to start a new one. Build it at `app/views/<model_kebab>s/index.html.erb`.
 
-| Local | Type | Notes |
-|---|---|---|
-| `title` | String | Page heading |
-| `intro` | String | Description paragraph |
-| `new_button_text` | String | CTA label |
-| `new_path` | String | URL for "Start new application" |
-| `application_forms` | Array | Each item has `created_at`, `path`, `status` |
-| `in_progress_applications_heading` | String | Section heading for in-progress list |
+**Controller contract.** The `index` action must expose two collections, both scoped to `current_user`:
 
-Inside the template, render existing applications in a `Strata::US::TableComponent` (see below) with columns for ID, date, status, and an action link.
+```ruby
+# app/controllers/<model_kebab>s_controller.rb
+def index
+  @in_progress_application_forms = current_user.<model_kebab>s.where(submitted_at: nil).order(updated_at: :desc)
+  @completed_application_forms   = current_user.<model_kebab>s.where.not(submitted_at: nil).order(submitted_at: :desc)
+end
+```
+
+**Template contract.** The template must render three things, in this order:
+
+1. A page heading (`<h1>`).
+2. A primary **"Start a new application"** button linking to `new_<model_kebab>_path`. This button must render **even if both collections are empty** — it's the only entry point into the flow.
+3. One section per non-empty collection, each rendered with `Strata::US::TableComponent`. Omit a section if its collection is empty (do not render an empty table — render no section).
+
+**Reference template:**
+
+```erb
+<%# app/views/<model_kebab>s/index.html.erb %>
+<section class="grid-container usa-section">
+  <div class="grid-row grid-gap">
+    <div class="tablet:grid-col-10">
+      <h1><%= t(".title") %></h1>
+      <p class="usa-intro"><%= t(".intro") %></p>
+
+      <%= link_to t(".start_new"),
+                  new_<model_kebab>_path,
+                  class: "usa-button" %>
+
+      <% if @in_progress_application_forms.any? %>
+        <h2 class="margin-top-6"><%= t(".in_progress_heading") %></h2>
+        <%= render Strata::US::TableComponent.new(
+              striped: true,
+              stacked: true,
+              width_full: true
+            ) do |table| %>
+          <% table.with_caption { t(".in_progress_caption") } %>
+          <% table.with_header { t(".started_on") } %>
+          <% table.with_header { t(".last_updated") } %>
+          <% table.with_header { t(".actions") } %>
+
+          <% @in_progress_application_forms.each do |form| %>
+            <% table.with_row do |row| %>
+              <% row.with_cell { l(form.created_at.to_date, format: :long) } %>
+              <% row.with_cell { l(form.updated_at, format: :short) } %>
+              <% row.with_cell { link_to t(".continue"), <model_kebab>_path(form), class: "usa-link" } %>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+
+      <% if @completed_application_forms.any? %>
+        <h2 class="margin-top-6"><%= t(".completed_heading") %></h2>
+        <%= render Strata::US::TableComponent.new(
+              striped: true,
+              stacked: true,
+              width_full: true
+            ) do |table| %>
+          <% table.with_caption { t(".completed_caption") } %>
+          <% table.with_header { t(".submitted_on") } %>
+          <% table.with_header { t(".reference_number") } %>
+          <% table.with_header { t(".actions") } %>
+
+          <% @completed_application_forms.each do |form| %>
+            <% table.with_row do |row| %>
+              <% row.with_cell { l(form.submitted_at.to_date, format: :long) } %>
+              <% row.with_cell { form.reference_number } %>
+              <% row.with_cell { link_to t(".view"), <model_kebab>_path(form), class: "usa-link" } %>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</section>
+```
+
+**Required locale keys** (host-defined — these are NOT shipped by the gem):
+
+```yaml
+# config/locales/en.yml
+en:
+  <model_kebab>s:
+    index:
+      title: "My applications"
+      intro: "Start a new application or pick up where you left off."
+      start_new: "Start a new application"
+      in_progress_heading: "In progress"
+      in_progress_caption: "Applications you have not yet submitted."
+      completed_heading: "Completed"
+      completed_caption: "Applications you have submitted."
+      started_on: "Started on"
+      last_updated: "Last updated"
+      submitted_on: "Submitted on"
+      reference_number: "Reference number"
+      actions: "Actions"
+      continue: "Continue"
+      view: "View"
+```
+
+**Test contract.** The index request spec in the build-strata-app-form-views skill (Step 10) asserts (a) the "Start new" button is always present, (b) both section headings render when their collection has at least one row, (c) the right action link (`Continue` / `View`) appears per row, and (d) applications belonging to other users do not leak into the page. If you change the template, update the spec to match — never the other way around.
 
 ---
 
@@ -480,10 +572,12 @@ Renders a `<hr>` divider above and a `usa-button-group` containing an outline Ba
 
 ```erb
 <%= render partial: "strata/shared/exit_link", locals: {
-  exit_path: dashboard_path,
+  exit_path: <model_kebab>s_path,
   exit_text: "Save and exit"
 } %>
 ```
+
+`exit_path` should point at the citizen index page (`<model_kebab>s_path`, the application form resource's own `index` route — see "Application Forms Index" above), NOT a separate `dashboard_path`. The SDK persists draft state on every PATCH, so when the citizen returns to the index they'll see their in-progress form in the In-progress section.
 
 Renders a `usa-link` with an `arrow_back` USWDS sprite icon.
 
