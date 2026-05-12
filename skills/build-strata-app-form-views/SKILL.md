@@ -196,6 +196,12 @@ If yes, ask for the "what happens next" copy (timeline, contact info). Save as `
 
 Save as `<INCLUDE_DASHBOARD>` (default `true`).
 
+**5h. Show / landing page.**
+
+> The application form's show page is a task-list landing — it renders `Strata::Flows::TaskListComponent`, which lists each task with its state-appropriate action (Start / Continue / Edit / "Cannot start yet") and a built-in "Review and Submit" button (auto-disabled until every task is complete). Use this default? (yes / no — default yes)
+
+Save as `<INCLUDE_SHOW_PAGE>` (default `true`). If yes, capture the host-app i18n keys you'll need: one `{title, description}` pair per task under `<model_plural>.task_section_component.<task_name>.*`, plus `<model_kebab>.show.in_progress_title` and `in_progress_description` for the page header. See [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Form Show Page".
+
 ---
 
 ## Step 6: Consult the SDK gem for any remaining gaps
@@ -252,7 +258,11 @@ The plan header must list:
 - The full `<PAGES>` × `<TASKS>` matrix — one table row per `question_page` with its `task`, `depends_on`, fields, widgets, and the route `flow_step_path(:<page>)`
 - `<LAYOUT_STRATEGY>`, `<INCLUDE_REVIEW>`, `<INCLUDE_DASHBOARD>`, `<CONFIRMATION_COPY>`
 - `<SDK_GAPS>` table from Step 6 — every gap closed by reading the gem, with file references
-- Every locale key needed under `strata.application_forms.steps.*` (one per `question_page`) and any custom keys for review-section headings
+- Every locale key needed:
+  - `strata.application_forms.steps.<page>` per `question_page` (step indicator)
+  - `<model_plural>.task_section_component.<task_name>.title` and `.description` per task in `<TASKS>` (TaskListComponent rows — these are host-defined; missing keys render as visible `translation missing: …` text)
+  - `<model_kebab>.show.in_progress_title` and `<model_kebab>.show.in_progress_description` (if `<INCLUDE_SHOW_PAGE>`)
+  - Any custom keys for review-section headings
 
 Each task in the plan must follow the TDD shape from `writing-plans.md`: failing spec → run red → minimal code → run green → commit. Pages are bite-sized — one page per task.
 
@@ -301,10 +311,27 @@ bin/rails generate strata:application_form_views <PROGRAM>
 This typically produces: a controller, a `views/` directory with placeholder ERB per page, a route entry, and an English locale stub. After running, **diff every generated file against `<PAGES>`** — the generator's placeholders likely don't match your confirmed widgets. Continue to Step 10 for the TDD-driven edit pass.
 
 **9b. If the generator is absent**, hand-roll the scaffolding:
+
 - Create `<FLOW_PATH>` with the `<FLOW_CLASS>` definition (one `task` block per `<TASKS>` entry, one `question_page` per `<PAGES>` entry, `end_page :review` if `<INCLUDE_REVIEW>`).
-- Add the routes per the SDK's flow conventions you read in Step 6b (`<SDK_GEM_PATH>/docs/multi-page-form-flows.md` and the flow-routing module).
-- Create one ERB template per page under `app/views/<MODEL_KEBAB>/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md).
-- Seed `config/locales/en.yml` with `strata.application_forms.steps.<page>` entries.
+- Add the routes at the **top level** of `Rails.application.routes.draw do ... end`. **Do NOT wrap them in a `scope "(:locale)"` block** — the gem's `flow_step_path`, the auto-generated `*_edit` / `*_update` helpers, and the built-in "Review and Submit" link inside `TaskListComponent` all resolve unscoped URL helpers. Nesting them under a locale scope makes every callsite require an explicit `locale:` arg and breaks the auto-generated button. Canonical pattern (mirrors `<SDK_GEM_PATH>/spec/dummy/config/routes.rb`):
+  ```ruby
+  resources :<model_kebab>s, only: [:index, :new, :show, :create] do
+    member do
+      <FLOW_CLASS>.pages.each do |page|
+        get page.edit_pathname
+        patch page.update_pathname
+      end
+      get :review
+      patch :submit
+    end
+  end
+  ```
+- Create one ERB template **per `question_page`** under `app/views/<MODEL_KEBAB>/` opening with `strata_form_with(model: @application_form, url: ..., method: :patch)` and the `strata/shared/step_indicator`, `strata/shared/form_buttons`, `strata/shared/exit_link` partials per [`references/ui-kit-components.md`](references/ui-kit-components.md).
+- If `<INCLUDE_SHOW_PAGE>`, create `app/views/<MODEL_KEBAB>/show.html.erb` rendering `Strata::Flows::TaskListComponent.new(flow: @flow, show_step_label: true)` per [`references/ui-kit-components.md`](references/ui-kit-components.md) → "Application Form Show Page". **Do NOT add a separate "Review and Submit" button — the component ships one and disables it until `@flow.completed?`.**
+- Seed `config/locales/en.yml` with:
+  - `strata.application_forms.steps.<page>` per question page (step indicator)
+  - `<model_plural>.task_section_component.<task_name>.{title,description}` per task (TaskListComponent rows — host-defined)
+  - `<model_kebab>.show.in_progress_title` and `<model_kebab>.show.in_progress_description` (show page heading)
 
 **9c. Citizen layout (only if `<LAYOUT_STRATEGY>` = create):**
 
@@ -332,6 +359,14 @@ For each entry in `<PAGES>`, in order:
 5. Run `make lint`.
 6. Commit with a one-sentence message naming the page added.
 7. Repeat for the next page.
+
+If `<INCLUDE_SHOW_PAGE>`, after all `question_page` specs pass, write a failing **show-page request spec** at `spec/requests/<MODEL_KEBAB>/show_spec.rb`:
+
+- `GET` the application form's show path. Assert response 200 and that `Strata::Flows::TaskListComponent`'s root element renders (USWDS class `usa-collection`).
+- For **each task in `<TASKS>`**, assert the response body contains the value of `I18n.t("<model_plural>.task_section_component.<task_name>.title")` and `I18n.t("<model_plural>.task_section_component.<task_name>.description")`. Use `I18n.t(...)` (not hardcoded strings) so the assertion fails loudly if the host-app key is missing OR the template stops reading from i18n.
+- Assert the "Review and Submit" button is present on a fresh record and **disabled** (look for `disabled="disabled"` or the USWDS `usa-button[disabled]` selector).
+- Build a factory-stage helper that marks every task complete (e.g. fills every required attribute), then re-`GET` the show page and assert the same button is now **enabled**.
+- Run `make test spec/requests/<MODEL_KEBAB>/show_spec.rb` — watch it fail (likely "translation missing" or missing template), fix by adding the keys and rendering the component, run green, commit.
 
 After all pages pass, write **one** system spec at `spec/system/<MODEL_KEBAB>_flow_spec.rb` that walks the entire flow end-to-end: visits the first step, fills + submits each page in order, lands on the review page, clicks an Edit link, comes back, submits, and lands on the confirmation page with the success alert. Run, watch fail, fix, run green, commit.
 
@@ -367,7 +402,7 @@ Then run a **visual walk-through** in Claude in Chrome:
 
 ## Step 12: Report
 
-> **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, layout at `app/views/layouts/application.html.erb` (if created), dashboard at `app/views/dashboard/index.html.erb` (if included), review and confirmation pages (if included). Plan at `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
+> **Views ready.** Application form `<MODEL_NAME>` now has flow `<FLOW_CLASS>` with `<N>` pages, layout at `app/views/layouts/application.html.erb` (if created), show page at `app/views/<model_kebab>/show.html.erb` rendering `Strata::Flows::TaskListComponent` (if included), dashboard at `app/views/dashboard/index.html.erb` (if included), review and confirmation pages (if included). Plan at `docs/plans/<YYYY-MM-DD>-<MODEL_KEBAB>-views.md`. `make lint` and `make test` both green. Visual walk-through clean.
 
 ---
 
@@ -388,6 +423,9 @@ Then run a **visual walk-through** in Claude in Chrome:
 | Citizen layout reused the staff layout under `layouts/strata/staff.html.erb` | The SDK only ships the staff layout; using it on the citizen side leaks staff chrome | Create `app/views/layouts/application.html.erb` per [`references/ui-kit-components.md`](references/ui-kit-components.md) |
 | `make test` green on the very first run for a new page | Skipped the RED step — no failing spec was written before the template | Revert the template, re-run the spec, watch it fail, then re-implement |
 | Visual walk-through skipped because "lint and test are green" | `make test` doesn't catch CSS/USWDS regressions, locale typos, or wrong widget choices | Run the Claude-in-Chrome pass; do not claim done without it |
+| `flow_step_path` and the in-built "Review and Submit" link 404 or demand an explicit `locale:` arg | The application-form resources were nested inside `scope "(:locale)" do ... end` | Move them out to the top level of `Rails.application.routes.draw` per Step 9b's canonical pattern |
+| Show page renders two "Review and Submit" buttons stacked on top of each other | A submit button was hand-rolled alongside `Strata::Flows::TaskListComponent`, which already ships one | Delete the hand-rolled button; only `<%= render Strata::Flows::TaskListComponent.new(...) %>` |
+| Task rows render `translation missing: en.<model_plural>.task_section_component.<task>.title` (and the same for `.description`) | The host app did not define the per-task locale keys — these are NOT shipped by the gem | Add `<model_plural>.task_section_component.<task_name>.{title,description}` to `config/locales/en.yml`; the show-page request spec from Step 10 catches this before it ships |
 
 ---
 

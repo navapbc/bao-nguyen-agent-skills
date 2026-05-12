@@ -53,7 +53,32 @@ Step display names come from i18n under `strata.application_forms.steps.*`. See 
 
 ---
 
-### 3. Save and Exit
+### 3. Task-List Landing Page
+
+**Pattern**: An application form's "home" page is a list of tasks, not a wall of fields.
+
+**Why**: Multi-task forms are too big to display on one page. The user needs to see which sections are done, which are in progress, and which are still locked — and they need a single, clear way to submit when everything is complete.
+
+**Implementation**:
+
+- The show page renders `Strata::Flows::TaskListComponent`. Each row shows the task title, description, and a state-appropriate action (Start / Continue / Edit / "Cannot start yet").
+- The component renders a single **"Review and Submit"** button at the bottom of the list. It is disabled automatically until every task is complete — host code does not gate it.
+- Per-task title and description text is host-defined in i18n under `<model_plural>.task_section_component.<task_name>.{title,description}`. Per-row action labels (Start, Continue, Edit, Step) are gem-owned and need no host overrides.
+
+```erb
+<%= render Strata::Flows::TaskListComponent.new(flow: @flow, show_step_label: true) %>
+```
+
+**Don't**:
+- Render a second "Review and Submit" button alongside the component.
+- Try to gate the submit button yourself — the framework already disables it until `@flow.completed?`.
+- Hand-roll a fields-on-show-page UI for a multi-task form. If a form only has one task, this pattern doesn't apply; use a single-page form instead.
+
+See ui-kit-components.md → "Task List" and "Application Form Show Page".
+
+---
+
+### 4. Save and Exit
 **Pattern**: Let users save their progress and return later.
 
 **Why**: Real-world interruptions happen, forms take time, trust-building.
@@ -76,7 +101,7 @@ See ui-kit-components.md → "Save and Exit Link" and "Multi-Page Form Flow → 
 
 ---
 
-### 4. Review Before Submit
+### 5. Review Before Submit
 **Pattern**: Show a summary page where users can review and edit answers before final submission.
 
 **Why**: Catch mistakes, build confidence, final verification.
@@ -85,7 +110,8 @@ See ui-kit-components.md → "Save and Exit Link" and "Multi-Page Form Flow → 
 - Dedicated review page before confirmation (declare with `end_page :review` in the Flow DSL)
 - Group answers by section matching form flow
 - Edit links that jump back to specific pages via `flow_step_path(:section_name)`
-- Clear "Submit" button distinct from "Continue"
+- Clear "Submit" button on the review page itself, distinct from the per-page "Save and continue"
+- The link **into** the review page from the show / task-list landing is rendered automatically by `Strata::Flows::TaskListComponent` — do not hand-roll a second "Review and Submit" button on the show page
 
 **Structure**:
 ```
@@ -123,7 +149,7 @@ See ui-kit-components.md → "Review / Summary Pages".
 
 ---
 
-### 5. Confirmation Page
+### 6. Confirmation Page
 **Pattern**: After submission, show a confirmation page with next steps and reference number.
 
 **Why**: Provides closure, gives users proof, explains what happens next.

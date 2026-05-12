@@ -489,24 +489,109 @@ Renders a `usa-link` with an `arrow_back` USWDS sprite icon.
 
 ---
 
-### Task List (dashboard-style progress)
+### Task List (`Strata::Flows::TaskListComponent`)
 
-**Component:** `Strata::Flows::TaskListComponent` (uses `Strata::Flows::TaskSectionComponent` per row)
+The canonical landing component for an application form's show page. Renders one row per `task` declared on the flow, plus a built-in "Review and Submit" button at the end of the list.
+
+**Component:** `Strata::Flows::TaskListComponent` (renders `Strata::Flows::TaskSectionComponent` per row)
+**Source:** `<SDK_GEM_PATH>/app/components/strata/flows/task_list_component.rb` + `.html.erb`
+
+**Constructor:**
+
+| Arg | Type | Default | Notes |
+|---|---|---|---|
+| `flow:` | `Strata::Flows::ApplicationFormFlow` instance | required | The flow object the controller instantiated for this record |
+| `task_section_component_class:` | Class | `Strata::Flows::TaskSectionComponent` | Subclass to override per-row rendering |
+| `show_step_label:` | Boolean | `false` | When `true`, prefixes each row with "Step N" |
+
+**Usage:**
 
 ```erb
-<%= render Strata::Flows::TaskListComponent.new(
-  flow: @flow,
-  show_step_label: true
-) %>
+<%= render Strata::Flows::TaskListComponent.new(flow: @flow, show_step_label: true) %>
 ```
 
-Renders each task with a state-appropriate action:
-- **Not started** → "Start" primary button
-- **In progress** → "Continue" outline button
-- **Completed** → checkmark + "Edit" link
-- **Dependencies not met** → disabled "Cannot start yet" text
+**What the component renders, automatically:**
 
-The list ends with a "Review and submit" button (disabled until the flow is complete).
+| Region | Behavior |
+|---|---|
+| Per-row action button | `Start` / `Continue` / `Edit` / "Cannot start yet" — chosen by task state (not started / in progress / completed / dependencies not met). Labels come from the gem's own locale file (`task_section_component.en.yml`); host apps do NOT redefine these. |
+| Per-row title + description | Read from host-app i18n — see below. Missing keys render visible `translation missing: …` text. |
+| "Review and Submit" button | Rendered at the end of the list. Label from `actions.review_and_submit` (gem-owned). Links to `@flow.end_path`. **Disabled until `@flow.completed?` returns true.** Host apps must NOT render their own — the component ships one. |
+
+**Per-task title and description — host-app locale keys.**
+
+`TaskSectionComponent` reads each row's heading and body from a translation prefix derived at runtime:
+
+```
+{plural_model_name}.task_section_component.{task_name}.title
+{plural_model_name}.task_section_component.{task_name}.description
+```
+
+The plural model name is `@flow.record.class.name.underscore.pluralize`, and `task_name` is the symbol passed to `task :…` in the flow. The host app must define these in `config/locales/*.yml`:
+
+```yaml
+en:
+  benefits_application_forms:        # plural of BenefitsApplicationForm
+    task_section_component:
+      personal_information:          # matches `task :personal_information`
+        title: "Personal information"
+        description: "Tell us about yourself. You'll need your SSN or ITIN."
+      employment_details:
+        title: "Employment"
+        description: "Tell us about your employer."
+```
+
+For a worked example see `<SDK_GEM_PATH>/spec/dummy/config/locales/sample_applications/en.yml`.
+
+**Testing the wiring.** The titles and descriptions are the only host-defined strings on the component — assert them via `I18n.t(...)` in a request spec for the show page so a missing key fails the build, not just the visual review:
+
+```ruby
+it "renders each task's title and description from i18n" do
+  get application_form_path(application_form)
+
+  expect(response.body).to include(I18n.t("benefits_application_forms.task_section_component.personal_information.title"))
+  expect(response.body).to include(I18n.t("benefits_application_forms.task_section_component.personal_information.description"))
+end
+```
+
+References inside the gem: `<SDK_GEM_PATH>/app/components/strata/flows/task_section_component.rb` (the `translation_prefix` method) and `<SDK_GEM_PATH>/app/components/strata/flows/task_section_component.html.erb` (where `title` and `description` are looked up).
+
+---
+
+### Application Form Show Page
+
+The show page for an in-progress application form is a task-list landing page, not a form. It renders `TaskListComponent` and nothing else by way of submit chrome — the component ships the "Review and Submit" button.
+
+**Canonical pattern** (from `<SDK_GEM_PATH>/spec/dummy/app/views/sample_application_forms/show.html.erb`):
+
+```erb
+<%# app/views/<model_kebab>/show.html.erb %>
+<% if @application_form.submitted? %>
+  <%# Submitted view — render the post-submission confirmation/summary template here %>
+<% else %>
+  <% content_for :title, t(".in_progress_title") %>
+  <h1><%= t(".in_progress_title") %></h1>
+  <p><%= t(".in_progress_description") %></p>
+
+  <%= render Strata::Flows::TaskListComponent.new(flow: @flow, show_step_label: true) %>
+<% end %>
+```
+
+Required host-app locale keys for this page:
+
+```yaml
+en:
+  benefits_application_forms:
+    show:
+      in_progress_title: "Your in-progress application"
+      in_progress_description: "Your progress is automatically saved as you complete the application."
+```
+
+**Don'ts:**
+
+- **Do not add a second "Review and Submit" button.** `TaskListComponent` already renders one, and a second copy will sit alongside the first.
+- **Do not gate the submit button yourself.** The component already disables it until `@flow.completed?` — duplicating the gate causes drift.
+- **Do not embed `strata_form_with` here.** This page is read-only chrome; the form happens on each `question_page`.
 
 ---
 
@@ -792,6 +877,9 @@ Full reference: https://designsystem.digital.gov/utilities/
 | AccordionComponent | `<SDK_GEM_PATH>/app/components/strata/us/accordion_component.rb` |
 | Case index | `<SDK_GEM_PATH>/app/components/strata/cases/index_component.rb` |
 | TaskListComponent | `<SDK_GEM_PATH>/app/components/strata/flows/task_list_component.rb` |
+| TaskListComponent button label (gem-owned) | `<SDK_GEM_PATH>/app/components/strata/flows/task_list_component.en.yml` |
+| TaskSectionComponent (per-row template + state) | `<SDK_GEM_PATH>/app/components/strata/flows/task_section_component.rb` |
+| TaskSectionComponent action labels (gem-owned) | `<SDK_GEM_PATH>/app/components/strata/flows/task_section_component.en.yml` |
 | ConditionalFieldComponent | `<SDK_GEM_PATH>/app/components/strata/conditional_field_component.rb` |
 | Flow docs | `<SDK_GEM_PATH>/docs/multi-page-form-flows.md` |
 | FormBuilder docs | `<SDK_GEM_PATH>/docs/strata-form-builder.md` |
