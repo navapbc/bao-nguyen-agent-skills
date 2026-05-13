@@ -14,7 +14,7 @@
 
 > Google Doc: https://docs.google.com/document/d/1TORwUp7JxrW7NJTeqR8vAENFV0HZ70gnr_NdT_eH8Qc/edit
 >
-> Source design spec (deep dive): `docs/superpowers/specs/2026-05-13-agent-harness-design.md`. Section references below (e.g. "§4") point into that file.
+> Source design spec (deep dive): `docs/superpowers/specs/2026-05-13-agent-harness-design.md`. Section references below (e.g. "§4") point into that file, except for §11 sub-references (§11.1–§11.5), which point to the restructured sub-sections in this tech spec — see "Self-Improvement Layer" below.
 
 ## Overview
 
@@ -66,7 +66,7 @@ From §20 (recommended defaults are noted in-line; confirm on review):
 1. **Per-demo repo strategy.** Default: each demo is its own Git repo in `<workdir>`. The runner decides where to push. Alternative: a `strata-demos` monorepo with one branch per demo.
 2. **Cloud runner choice for v1.** Default: GitHub Actions. Alternative: Anthropic Managed Agents when available.
 3. **`demo.yaml` ergonomics.** Default: ship the verbose SDK-informed template; add a "presets" mechanism in v2.
-4. **Compound-learnings location.** Default: `LEARNINGS.md` in the generated repo. Alternative: a central `strata-harness-learnings` repo. We take these learnings.md and then use it as feedback for how well the harness worked, and we can iterate on the harness.
+4. **Compound-learnings location.** Default: `LEARNINGS.md` in the generated repo. Alternative: a central `strata-harness-learnings` repo. Either way, `LEARNINGS.md` entries feed back into harness improvement as input to the skill-improver loop (§11).
 5. **Hook portability across runtimes.** Default: accept per-runtime trigger duplication; markdown content stays shared (§10.3).
 6. **Skill-improver scope creep.** Default: improver picks the most directly implicated skill (highest evaluator confidence; tie-break deeper-in-stack: model > views > app scaffold) and notes secondaries in the PR body.
 7. **Improver re-entry on rejected lint.** Default: abort with a comment back on the original PR; iterative self-repair is v2.
@@ -175,7 +175,7 @@ The harness is designed to be self-improving via a "Dispatch Hub" feedback loop.
 [Generated Repo]                                     [Harness Repo]
 PR Comment ──► GH Action (feedback-to-harness.yml) ──► repository_dispatch ──►
    GH Action (skill-improve.yml) ──►
-      strata-skill-comment-evaluator (legit? + which skill?) ──►
+      strata-skill-comment-evaluator (which skill? + confidence) ──►
          strata-skill-improver (plan → edit → lint → PR)
 ```
 
@@ -278,7 +278,7 @@ v2 adds `case`, `business_process`, and `tasks` top-level blocks.
   2. The improver's PR is **always opened as a draft** and is **never auto-merged**.
   3. The improver MAY only modify files under `skills/<implicated-skill>/`. Anything wider escalates to a human.
   4. Skill-improvement PRs traverse the same CI gates (lint + LLM eval) as any human PR.
-  5. `skill: undetermined` → workflow posts a justification reply and exits. No edit, no PR.
+  5. `implicated_skill: null` → workflow posts a justification reply and exits. No edit, no PR.
   6. `confidence: low` → improver does not run; reviewer is asked to re-run with `--force`.
   7. The evaluator will need to treat the PR comment as untrusted input.
 
@@ -309,9 +309,9 @@ From §16 Testing Strategy and §19 Verification.
 
 ## Deployment and Rollout
 
-Two install surfaces, both fed by the same npm package:
+Two install surfaces, both ship the same skill/hook content from the `strata-agent-harness` repo:
 
-- **Developer machines:** install the Claude Code plugin (`.claude-plugin/plugin.json`); skills auto-load on session start. Per-developer permissions live in `.claude/settings.local.json` (unchanged); the new `PreToolUse` hook is registered in `.claude/settings.json` and ships with the plugin.
+- **Developer machines:** install the Claude Code plugin (`.claude-plugin/plugin.json`); skills auto-load on session start. Per-developer permissions live in `.claude/settings.local.json` (unchanged); the new `PreToolUse` hook is registered in `.claude/settings.json` and ships with the plugin. Non-Claude-Code agents (e.g., Cursor) use the manual installation files described in §5.
 - **CI / cloud:** consume the Docker image, published on tag to `ghcr.io/navapbc/strata-harness:<tag>`. Image is Ruby + Rails + Node + nava-platform + preinstalled Strata SDK;
 
 ```sh
@@ -322,16 +322,16 @@ docker run --rm \
   build --input /work/demo.yaml --unattended --workdir /work
 ```
 
-The harness's responsibility ends at a working app in a workdir. The runner (a GitHub Action, an Anthropic Managed Agent) owns `git push` and PR-open.
+The harness's responsibility ends at a working app in a workdir. The runner (a GitHub Action, an Anthropic Managed Agent, a Slackbot, or any pluggable surface) owns `git push` and PR-open.
 
-**Initial rollout.** Ship v1 behind no flags. Usage is gated by who installs the plugin and who runs the workflow. Open the skill-improvement workflow on a single fixture repo first; 
+**Initial rollout.** Ship v1 behind no flags. Usage is gated by who installs the plugin and who runs the workflow. Open the skill-improvement workflow on a single fixture repo first; widen to all `harness-generated`-labeled PRs once the evaluator has been verified against a representative sample of synthetic reviewer comments and the improver's draft PRs lint clean for two consecutive weeks.
 
 ## Rollback Plan
 
 The harness owns no persistent state — every artifact is a file in `<workdir>` and every generated app is its own per-demo Git repo. Rollback paths:
 
 - **A bad generated app:** close the runner's PR; delete the branch. The next harness run is independent.
-- **A bad harness release:** `npm install @navapbc/strata-harness@<previous>` on developer machines; pin the workflow to a previous Docker tag (`ghcr.io/navapbc/strata-harness:<previous-tag>`). No data migration is involved.
+- **A bad harness release:** pin the Claude Code plugin to the previous version on developer machines (re-install from the previous Git tag of `strata-agent-harness`); pin the workflow to a previous Docker tag (`ghcr.io/navapbc/strata-harness:<previous-tag>`). No data migration is involved.
 - **A bad skill-improvement PR:** the PR is opened as a draft and never auto-merged (§11.3), so "rollback" = decline to mark ready / `git revert` the merge if it has already shipped.
 
 Alerts to watch during rollout: GitHub Actions failure rate on `skill-improve.yml`, lint failure rate on the improver's draft PRs, and the eval pass-rate trend on harness-generated PRs.
@@ -349,7 +349,7 @@ Surfacing: developers read transcripts in-IDE; engineers grep `LEARNINGS.md` in 
 ## Metrics
 
 - **Time-to-demo.** Captured per build by `strata-compound-learnings` (§12). The headline number — drives the v1 goal of fixing the demo cadence.
-- **Skill-improvement PR merge-rate.** What fraction of the improver's draft PRs get merged. Low merge-rate is a signal that the evaluator's precision is poor or the improver is producing low-quality edits — either way, an actionable feedback signal on the loop itself (§11.5).
+- **Skill-improvement PR merge-rate.** What fraction of the improver's draft PRs get merged. Low merge-rate is a signal that the evaluator's precision is poor or the improver is producing low-quality edits — either way, an actionable feedback signal on the loop itself (§11).
 
 ## Long-term Support
 
