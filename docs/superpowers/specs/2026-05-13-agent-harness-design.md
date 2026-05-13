@@ -223,7 +223,7 @@ The compound-learnings skill (§12) captures per-demo descriptive notes. It does
 ```
 PR (from harness) ──► reviewer comment ──► GH Action (skill-improve.yml) ──►
    strata-skill-comment-evaluator (legit? + which skill?) ──►
-      strata-skill-improver (plan → edit → lint → PR against skills repo)
+      strata-skill-improver (plan → edit → lint → PR against Strata Agent Harness)
 ```
 
 ### 11.1 Trigger
@@ -247,7 +247,7 @@ The workflow has no other triggers — it does not run on push, on schedule, or 
   ```
   Rubric (rejects): one-off design preference; out-of-scope feature request; cosmetic taste; comment about generated app code that the skill cannot influence. Rubric (accepts): a class of error the skill could have prevented; a misuse of an SDK affordance the skill should have known about; a UX violation of a pattern documented in the skill's `design-patterns.md`.
 
-- **`strata-skill-improver`** — given an implicated skill and the legitimate comment, plans focused edits using `superpowers:writing-plans` + `superpowers:writing-skills`, applies them, runs `python scripts/lint_skills.py`, and opens a draft PR against `bao-nguyen-agent-skills` titled `skill-improve: <skill> — <comment summary>` with the original PR + comment linked in the body.
+- **`strata-skill-improver`** — given an implicated skill and the legitimate comment, plans focused edits using `superpowers:writing-plans` + `superpowers:writing-skills`, applies them, runs `python scripts/lint_skills.py`, and opens a draft PR against `strata-agent-harness` titled `skill-improve: <skill> — <comment summary>` with the original PR + comment linked in the body.
 
 ### 11.3 Guardrails (non-negotiable in v1)
 
@@ -281,7 +281,7 @@ The evaluator uses this to deterministically map `comment.path` → `implicated_
 
 | Aspect | `strata-compound-learnings` (§12) | `strata-skill-improver` (§11) |
 |---|---|---|
-| Output | `LEARNINGS.md` entry in the generated repo | A PR against `bao-nguyen-agent-skills` |
+| Output | `LEARNINGS.md` entry in the generated repo | A PR against `strata-agent-harness` |
 | Tone | Descriptive (what happened) | Prescriptive (what to change) |
 | Trigger | End of every harness run | A reviewer comment on a harness PR |
 | Scope | The just-built demo | The skill content itself |
@@ -343,10 +343,10 @@ This keeps the harness's responsibility narrow (build a working app in a directo
 
 ## 15. Repository / Plugin Layout
 
-The current repo (`bao-nguyen-agent-skills`) is renamed or hosts the harness alongside the existing skills:
+The production repo (`strata-agent-harness`) hosts the harness alongside the existing skills:
 
 ```
-bao-nguyen-agent-skills/  (or strata-harness/)
+strata-agent-harness/
 ├── .claude/
 │   ├── settings.json                    # NEW — registers PreToolUse hook (§10.2)
 │   └── settings.local.json              # existing — per-developer permissions
@@ -463,7 +463,7 @@ After implementation:
 6. **Self-improvement loop end-to-end**: post a synthetic reviewer comment on a fixture PR labeled `harness-generated` pointing at an `app/views/` file. Confirm:
    a. `skill-improve.yml` triggers.
    b. `strata-skill-comment-evaluator` returns `legit: true` and `implicated_skill: build-strata-app-form-views`.
-   c. `strata-skill-improver` opens a **draft** PR against `bao-nguyen-agent-skills` that modifies only files under `skills/build-strata-app-form-views/`.
+   c. `strata-skill-improver` opens a **draft** PR against `strata-agent-harness` that modifies only files under `skills/build-strata-app-form-views/`.
    d. The new PR passes `python scripts/lint_skills.py` and the LLM eval in CI.
 7. **Negative-path verification**: post a comment that is cosmetic/out-of-scope. Confirm the evaluator returns `legit: false` and the workflow posts a reasoned reply without opening a PR.
 
