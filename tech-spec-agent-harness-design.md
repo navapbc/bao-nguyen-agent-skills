@@ -52,9 +52,8 @@ Merged from §3 Non-Goals and §17 "Out of scope (v2+)":
 - Case views skill, BusinessProcess DSL skill, Task subclass skill, end-to-end event wiring (v2).
 - Deploy / auth / seeded production-fidelity data (vX).
 - Cross-demo learning aggregator — org-wide insights mined from many demos (v2+).
-- Support for non-Rails Strata templates (Next.js, Python) — gated on Strata itself supporting them.
-- Opening PRs from the harness. The runner (CI / webhook / Slackbot) owns push + PR open (§3, §13).
-- GitHub webhook trigger for the cloud surface (v2).
+- Support for non-Rails Strata templates (Next.js, Python).
+- Opening PRs from the harness. The runner (CI / webhook / Slackbot/ Skill) owns push + PR open (§3, §13).
 - Post-write USWDS / a11y validation hook (v2).
 - Auto-merging skill-improvement PRs (always draft → human-gated in v1, §11.3).
 - Cross-skill or shared-infra edits from the skill-improver — single-skill scope only in v1 (§11.3).
@@ -66,9 +65,9 @@ From §20 (recommended defaults are noted in-line; confirm on review):
 
 1. **Per-demo repo strategy.** Default: each demo is its own Git repo in `<workdir>`. The runner decides where to push. Alternative: a `strata-demos` monorepo with one branch per demo.
 2. **Cloud runner choice for v1.** Default: GitHub Actions. Alternative: Anthropic Managed Agents when available.
-3. **`demo.yaml` ergonomics.** Default: ship the verbose SDK-mirror form; add a "presets" mechanism in v2.
-4. **Compound-learnings location.** Default: `LEARNINGS.md` in the generated repo. Alternative: a central `strata-harness-learnings` repo.
-5. **Hook portability across runtimes.** Default: accept per-runtime trigger duplication; markdown content stays shared (§10.3). A pure-text wrapper utility is explicitly rejected as premature abstraction.
+3. **`demo.yaml` ergonomics.** Default: ship the verbose SDK-informed template; add a "presets" mechanism in v2.
+4. **Compound-learnings location.** Default: `LEARNINGS.md` in the generated repo. Alternative: a central `strata-harness-learnings` repo. We take these learnings.md and then use it as feedback for how well the harness worked, and we can iterate on the harness.
+5. **Hook portability across runtimes.** Default: accept per-runtime trigger duplication; markdown content stays shared (§10.3).
 6. **Skill-improver scope creep.** Default: improver picks the most directly implicated skill (highest evaluator confidence; tie-break deeper-in-stack: model > views > app scaffold) and notes secondaries in the PR body.
 7. **Improver re-entry on rejected lint.** Default: abort with a comment back on the original PR; iterative self-repair is v2.
 
@@ -86,7 +85,7 @@ intent.md       demo.yaml      plan.md        build/        verification.md
                                               (commits)
 ```
 
-Each phase is **one skill**; the orchestrator never does work directly. It reads the previous phase's artifact, decides whether to gate, dispatches a fresh sub-agent for the next phase with that artifact loaded, and writes the new artifact when the sub-agent completes. The build phase internally dispatches one sub-agent per Strata-skill invocation (rails-app, sdk-model, app-form-views), each with its own fresh context — that is how context overflow is beaten.
+Each phase is **one skill**; the orchestrator never does work directly. It reads the previous phase's artifact, decides whether to gate, dispatches a fresh sub-agent for the next phase with that artifact loaded, and writes the new artifact when the sub-agent completes. The build phase internally dispatches one sub-agent per Strata-skill invocation (rails-app, sdk-model, app-form-views), each with its own fresh context.
 
 ### Two Runtimes, One Set of Skills (§5)
 
@@ -116,7 +115,7 @@ Each phase is **one skill**; the orchestrator never does work directly. It reads
    developer in IDE                              cloud agent / CI
 ```
 
-Shared content is distributed via plugins (e.g., the Claude Code plugin) rather than a raw npm package. For non-plugin agents like Cursor, custom installation scripts/files are used to load the same content. The CC plugin uses Claude Code's native sub-agent dispatch (Task tool). The headless shim is a ~1.5–2k LOC Node/TypeScript binary that re-implements the same dispatch loop using the Anthropic SDK directly. It is the biggest single new piece of code in v1.
+Shared content is distributed via plugins (e.g., the Claude Code plugin) rather than a raw npm package. For non-plugin agents like Cursor, custom installation scripts/files are used to load the same content. The CC plugin uses Claude Code's native sub-agent dispatch (Task tool). The headless shim is a Node/TypeScript binary that re-implements the same dispatch loop using the Anthropic SDK directly.
 
 ### Canonical Artifact Contract (§6)
 
@@ -170,23 +169,28 @@ The Strata SDK is deliberately unopinionated about UI; without an opinion the ag
 
 ### Self-Improvement Layer (§11)
 
-The harness is designed to be self-improving. Beyond just skill content, the tooling handles updates to hooks and context loaded during the build process.
+The harness is designed to be self-improving via a "Dispatch Hub" feedback loop. Reviewer comments on any harness-generated repository are routed back to the central `strata-agent-harness` repo to trigger automated skill improvements.
 
 ```
-PR (from harness) ──► reviewer comment ──► GH Action (skill-improve.yml) ──►
-   strata-comment-evaluator (legit? + which component?) ──►
-      strata-component-improver (plan → edit → lint → PR)
+[Generated Repo]                                     [Harness Repo]
+PR Comment ──► GH Action (feedback-to-harness.yml) ──► repository_dispatch ──►
+   GH Action (skill-improve.yml) ──►
+      strata-skill-comment-evaluator (legit? + which skill?) ──►
+         strata-skill-improver (plan → edit → lint → PR)
 ```
 
-- **Trigger (§11.1):** .github/workflows/skill-improve.yml is primarily triggered by `issue_comment.created` on PRs labeled `harness-generated`, but the improver is designed to be trigger-agnostic (e.g., could be invoked by a failing CI check or a manual command).
-- **Broadened Scope (§11.2):** The improver tooling is capable of targeting:
-  - **Skills**: `SKILL.md` and reference files.
-  - **Hooks**: Scripts in `hooks/` (e.g., `inject-design-context.sh`).
-  - **Context**: Markdown files in `references/` that guide agent behavior.
-- **Two new skills (§11.2):**
-  - `strata-skill-comment-evaluator` — LLM-as-judge. Returns `legit`, `implicated_skill`, `confidence`, `reason`.
+- **Scaffolding (§11.1):** The `build` phase scaffolds `.github/workflows/feedback-to-harness.yml` into every generated repository.
+  - **Trigger:** `issue_comment.created` on PRs labeled `harness-generated`.
+  - **Action:** Sends a `repository_dispatch` to `strata-agent-harness` with the comment context.
+  - **Auth:** Requires a `STRATA_HARNESS_DISPATCH_TOKEN` secret (PAT or GitHub App token) in the generated repo.
+- **Trigger (Harness Repo, §11.2):** `.github/workflows/skill-improve.yml` is triggered by `repository_dispatch` (event_type: `feedback_from_generated_repo`).
+- **Two new skills (§11.3):**
+  - `strata-skill-comment-evaluator` — LLM-as-judge. Reads the dispatch payload + `LEARNINGS.md` telemetry. Returns `implicated_skill`, `confidence`, `reason`.
   - `strata-skill-improver` — given an implicated skill + legitimate comment, plans focused edits via `superpowers:writing-plans` + `superpowers:writing-skills`, runs `python scripts/lint_skills.py`, opens a draft PR against `strata-agent-harness`.
 - **Telemetry contract (§11.4):** the build phase writes a structured `skill_invocations:` block into `LEARNINGS.md` mapping produced files → owning skill name + version. The evaluator uses this to deterministically map `comment.path` → `implicated_skill`.
+- **Local vs. Cloud Setup (§11.5):**
+  - **Local Developer:** Harness prompts the dev to add the `STRATA_HARNESS_DISPATCH_TOKEN` secret to their new repo after push.
+  - **Cloud Agent:** The cloud runner (e.g., a "demo factory" workflow) automatically injects the secret into the new repo during the build/push process.
 
 ### Compound-Learnings Skill (§12)
 
@@ -201,8 +205,6 @@ Option 1 — **Claude Code plugin only**, cloud runs `claude -p` non-interactive
 - *Pro Option 1:* skips ~1.5–2k LOC of shim + Docker; no second sub-agent dispatch impl; single mental model.
 - *Con Option 1:* `claude -p` is interactive-first (timeouts, compaction edges); cloud auth surface messier; sandboxing inherits CC's permission model; queueing/telemetry harder.
 
-**Concrete revisit trigger:** if at the end of v1 the shim has cost more than 3 engineering weeks and cloud demand is still hypothetical, collapse to Option 1.
-
 ### Repo Layout + Critical Files (§15, §18)
 
 Production repo: `strata-agent-harness`. Key paths:
@@ -211,8 +213,10 @@ Production repo: `strata-agent-harness`. Key paths:
 strata-agent-harness/
 ├── .claude/settings.json                    # NEW — registers PreToolUse hook
 ├── .claude-plugin/plugin.json               # CC plugin manifest (peer-deps superpowers)
-├── .github/workflows/skill-improve.yml      # NEW — §11 trigger
+├── .github/workflows/skill-improve.yml      # NEW — §11.2 Listener
 ├── hooks/inject-design-context.sh           # NEW — §10.2
+├── templates/                               # NEW — Scaffolded files
+│   └── feedback-to-harness.yml              # §11.1 Scaffolded into generated repos
 ├── skills/
 │   ├── build-strata-rails-app/references/   # gains design-patterns.md + ui-kit-components.md stubs
 │   ├── build-strata-sdk-model/references/   # gains stubs
@@ -297,7 +301,12 @@ From §16 Testing Strategy and §19 Verification.
 - CLI run: `strata-harness build --input fixtures/demo-unemployment.yaml --workdir /tmp/e2e --unattended` → `make lint && make test` both pass and `curl localhost:3000/unemployment_application_forms` returns 200 after `bin/dev`.
 - CC plugin run: `/strata-build-demo` against a free-form prompt; gates at spec/plan/final fire; during build, verify the PreToolUse hook fires on the first write under `app/views/` (a `<system-reminder>` prepending `references/design-patterns.md` is visible).
 - **Parity check:** both runtimes produce identical `demo.yaml` and identical generated app for the same input.
-- **Skill-improvement happy path:** post a synthetic reviewer comment on a fixture PR labeled `harness-generated` pointing at an `app/views/` file. Confirm `skill-improve.yml` triggers; evaluator returns `legit: true` + correct `implicated_skill`; improver opens a draft PR modifying only files under the implicated skill's directory; the new PR passes lint + LLM eval.
+- **Skill-improvement happy path:** post a synthetic reviewer comment on a fixture PR labeled `harness-generated` pointing at an `app/views/` file. Confirm:
+  1. `feedback-to-harness.yml` in the generated repo triggers.
+  2. `repository_dispatch` is sent to `strata-agent-harness`.
+  3. `skill-improve.yml` in the harness repo triggers.
+  4. Evaluator returns correct `implicated_skill`.
+  5. Improver opens a draft PR modifying only files under the implicated skill's directory; the new PR passes lint + LLM eval.
 - **Skill-improvement negative path:** post a cosmetic/out-of-scope comment. Confirm evaluator returns `legit: false` and the workflow posts a reasoned reply without opening a PR.
 
 ## Deployment and Rollout
