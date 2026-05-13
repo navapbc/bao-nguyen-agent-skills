@@ -278,9 +278,9 @@ v2 adds `case`, `business_process`, and `tasks` top-level blocks.
   2. The improver's PR is **always opened as a draft** and is **never auto-merged**.
   3. The improver MAY only modify files under `skills/<implicated-skill>/`. Anything wider escalates to a human.
   4. Skill-improvement PRs traverse the same CI gates (lint + LLM eval) as any human PR.
-  5. `legit: false` → workflow posts a justification reply and exits. No edit, no PR.
+  5. `skill: undetermined` → workflow posts a justification reply and exits. No edit, no PR.
   6. `confidence: low` → improver does not run; reviewer is asked to re-run with `--force`.
-- **PII surface.** The harness operates on synthetic demo data (e.g. an unemployment-application fixture). No production PII passes through any phase. Reviewer comments may contain free-text — the evaluator treats them as untrusted input and runs them through the same model that authored them; no shell interpolation.
+  7. The evaluator will need to treat the PR comment as untrusted input.
 
 ## Test Plan
 
@@ -290,9 +290,8 @@ From §16 Testing Strategy and §19 Verification.
 
 1. **Skill linter** — existing `scripts/lint_skills.py` covers SKILL.md format/structure for all new skills.
 2. **Per-skill behavior tests** — Python tests under `tests/` exercise rule fixtures (existing pattern).
-3. **Harness end-to-end eval** — `fixtures/demo-unemployment.yaml` → `strata-harness build --workdir tmp --unattended`. Assert: app dir exists; `make lint` exits 0; `make test` exits 0; HTTP smoke probe on `/<model_kebab>s` returns 200. Wired into CI.
-4. **Variance/regression tracking** — reuse `skill-creator:skill-creator` evals infra to track time-to-demo and pass-rate.
-5. **Manual visual walkthrough** — gated step. CC plugin + Claude-in-Chrome flow.
+3. **Harness end-to-end eval** — `fixtures/demo-unemployment.yaml` → `strata-harness build --workdir tmp --unattended`. Assert: app dir exists; `make lint` exits 0; `make test` exits 0; HTTP smoke probe on `/<model_kebab>s` returns 200. Wired into CI and runs only on merges to Main to prevent runaway cost with building a demo app repeatedly on commits or PR changes.
+4. **Manual visual walkthrough** — gated step. CC plugin + Claude-in-Chrome flow.
 
 **End-to-end verification scenarios:**
 
@@ -307,14 +306,13 @@ From §16 Testing Strategy and §19 Verification.
   3. `skill-improve.yml` in the harness repo triggers.
   4. Evaluator returns correct `implicated_skill`.
   5. Improver opens a draft PR modifying only files under the implicated skill's directory; the new PR passes lint + LLM eval.
-- **Skill-improvement negative path:** post a cosmetic/out-of-scope comment. Confirm evaluator returns `legit: false` and the workflow posts a reasoned reply without opening a PR.
 
 ## Deployment and Rollout
 
 Two install surfaces, both fed by the same npm package:
 
 - **Developer machines:** install the Claude Code plugin (`.claude-plugin/plugin.json`); skills auto-load on session start. Per-developer permissions live in `.claude/settings.local.json` (unchanged); the new `PreToolUse` hook is registered in `.claude/settings.json` and ships with the plugin.
-- **CI / cloud:** consume the Docker image, published on tag to `ghcr.io/navapbc/strata-harness:<tag>`. Image is Ruby + Rails + Node + nava-platform + preinstalled Strata SDK; ~600 MB; built in CI; published on tag. Invocation pattern (§13):
+- **CI / cloud:** consume the Docker image, published on tag to `ghcr.io/navapbc/strata-harness:<tag>`. Image is Ruby + Rails + Node + nava-platform + preinstalled Strata SDK;
 
 ```sh
 docker run --rm \
@@ -324,9 +322,9 @@ docker run --rm \
   build --input /work/demo.yaml --unattended --workdir /work
 ```
 
-The harness's responsibility ends at a working app in a workdir. The runner (a GitHub Action, an Anthropic Managed Agent, a Slackbot — pluggable) owns `git push` and PR-open.
+The harness's responsibility ends at a working app in a workdir. The runner (a GitHub Action, an Anthropic Managed Agent) owns `git push` and PR-open.
 
-**Initial rollout.** Ship v1 behind no flags. Usage is gated by who installs the plugin and who runs the workflow. Open the skill-improvement workflow on a single fixture repo first; widen to all `harness-generated`-labeled PRs once the negative-path verification (above) is green for two consecutive weeks.
+**Initial rollout.** Ship v1 behind no flags. Usage is gated by who installs the plugin and who runs the workflow. Open the skill-improvement workflow on a single fixture repo first; 
 
 ## Rollback Plan
 
@@ -335,7 +333,6 @@ The harness owns no persistent state — every artifact is a file in `<workdir>`
 - **A bad generated app:** close the runner's PR; delete the branch. The next harness run is independent.
 - **A bad harness release:** `npm install @navapbc/strata-harness@<previous>` on developer machines; pin the workflow to a previous Docker tag (`ghcr.io/navapbc/strata-harness:<previous-tag>`). No data migration is involved.
 - **A bad skill-improvement PR:** the PR is opened as a draft and never auto-merged (§11.3), so "rollback" = decline to mark ready / `git revert` the merge if it has already shipped.
-- **A pathological pre-write hook:** ship a release that removes the hook registration from `.claude/settings.json` and an image rebuild that drops `hooks/inject-design-context.sh`. The hook is a no-op when its target files are absent; uninstalling it does not break in-flight runs.
 
 Alerts to watch during rollout: GitHub Actions failure rate on `skill-improve.yml`, lint failure rate on the improver's draft PRs, and the eval pass-rate trend on harness-generated PRs.
 
@@ -352,28 +349,8 @@ Surfacing: developers read transcripts in-IDE; engineers grep `LEARNINGS.md` in 
 ## Metrics
 
 - **Time-to-demo.** Captured per build by `strata-compound-learnings` (§12). The headline number — drives the v1 goal of fixing the demo cadence.
-- **Eval pass-rate trend.** Pulled from the `skill-creator:skill-creator` evals infra (§16.4) — tracks variance and regressions across harness changes.
-- **Skill-improvement PR merge-rate.** Of evaluator-`legit: true` comments, what fraction of the improver's draft PRs get merged. Low merge-rate is a signal that the evaluator's precision is poor or the improver is producing low-quality edits — either way, an actionable feedback signal on the loop itself (§11.5).
+- **Skill-improvement PR merge-rate.** What fraction of the improver's draft PRs get merged. Low merge-rate is a signal that the evaluator's precision is poor or the improver is producing low-quality edits — either way, an actionable feedback signal on the loop itself (§11.5).
 
 ## Long-term Support
 
 Owner: the platform/skills team that ships `strata-agent-harness`. The harness is a thin layer over existing Strata SDK skills + the `obra/superpowers` methodology layer — most of the ongoing maintenance burden lives in the *skills*, not in the harness orchestration.
-
-Key longevity bets:
-
-- **Knowledge retention.** The skill self-improvement loop (§11) and compound-learnings (§12) are explicitly designed to convert per-engineer-per-PR learnings into durable skill content. This is the "what happens if key people leave" answer — the lessons live in the skill files, not in tribal memory.
-- **Runtime divergence.** Two runtimes share content but have separate dispatch implementations (§5, §10.3). The maintenance contract is that the *markdown content stays canonical*; runtime wrappers are allowed to drift in mechanics but never in semantics. The §6 artifact contract is the enforcement point.
-- **Maintenance burden.** Keep the shim's Anthropic SDK pinning current; keep the Docker base image patched (security CVEs in Ruby/Rails/Node); keep the schema validators in lockstep across both runtimes. The §14 revisit trigger (collapse to Option 1) is a documented exit if maintenance cost outruns the cloud demand.
-
-## Timeline
-
-Person-day estimates by owner-area, derived from §17 v1 Cut Recap and §14 (which sets a 3-engineering-week budget for the shim as the Option-1-revisit trigger). Realistic person-calendar-days, with padding for integration:
-
-- Orchestrator + phase skills (intent, spec, plan, verify): **~5 pd**
-- Headless CLI shim + Dockerfile + sandbox glue: **~10–15 pd** (the heaviest single chunk)
-- Pre-write design-context hook + reference-pack stubs: **~3 pd**
-- Skill-improvement loop (evaluator + improver + `skill-improve.yml`): **~5 pd**
-- End-to-end eval wiring (`fixtures/demo-unemployment.yaml`, CI integration): **~3 pd**
-- Polish, docs, distribution (npm publish, plugin manifest, Docker publish workflow): **~3 pd**
-
-**Total v1: ~29–34 person-days.** The shim is the long pole; the §14 revisit trigger fires if shim work crosses ~15 pd without proportional cloud demand. Padding for cross-team integration (Strata SDK changes, superpowers updates, CI quirks) is folded into the per-area estimates above, not held out as a separate buffer.
