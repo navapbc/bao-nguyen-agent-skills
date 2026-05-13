@@ -1,5 +1,10 @@
 # Agent Harness Design Tech Spec
 
+> [!IMPORTANT]
+> This document references two core methodologies:
+> - **Superpowers**: [An agentic skills framework & software development methodology](https://github.com/obra/superpowers)
+> - **Compound Engineering**: [A framework for agent-native architecture and self-improving systems](https://github.com/EveryInc/compound-engineering-plugin)
+
 | Field        | Value |
 | ------------ | ----- |
 | Author       | Bao Nguyen |
@@ -36,9 +41,9 @@ From §2 Goals (v1):
 - **Anthropic API access** is available wherever the headless shim runs (env var `ANTHROPIC_API_KEY`, §13).
 - **Docker is available on every cloud runner** in v1 (§13). Local developer machines use the Claude Code plugin instead and do not need Docker.
 - **GitHub Actions is the v1 cloud surface** (§13, §20.2). The harness itself is runtime-agnostic; the workflow surface can be swapped later.
-- **The npm distribution model** from the prior Skills Distribution spec is the shipping vehicle for the shared content (`@navapbc/strata-harness`, §5).
+- **Plugin-based distribution**: While the SPIKE used an npm-skills distribution model, the production harness ships skills, hooks, and other content via plugins. It supports the Claude Code plugin natively; for other agents like Cursor, manual installation files are provided to bridge the gap (§5).
 - **The existing Strata SDK skills are the initial spike implementation** (§2). v1 does not refactor them; it composes them.
-- **Reviewer comments on harness-generated PRs are the only trigger** for skill self-improvement (§11.1). No push, schedule, or PR-open triggers in v1.
+- **Reviewer comments on harness-generated PRs** are a primary trigger for skill self-improvement, though other triggers (e.g., validation failures, manual invocation) are supported by the underlying improver tooling (§11.1).
 
 ## Out of Scope
 
@@ -86,7 +91,7 @@ Each phase is **one skill**; the orchestrator never does work directly. It reads
 ### Two Runtimes, One Set of Skills (§5)
 
 ```
-                  shared content (npm package)
+                  shared content (plugins/hooks)
               ┌────────────────────────────────┐
               │  skills/<skill>/SKILL.md        │
               │  skills/<skill>/references/*    │
@@ -111,7 +116,7 @@ Each phase is **one skill**; the orchestrator never does work directly. It reads
    developer in IDE                              cloud agent / CI
 ```
 
-Shared content ships as the `@navapbc/strata-harness` npm package per the existing distribution spec. The CC plugin uses Claude Code's native sub-agent dispatch (Task tool). The headless shim is a ~1.5–2k LOC Node/TypeScript binary that re-implements the same dispatch loop using the Anthropic SDK directly. It is the biggest single new piece of code in v1.
+Shared content is distributed via plugins (e.g., the Claude Code plugin) rather than a raw npm package. For non-plugin agents like Cursor, custom installation scripts/files are used to load the same content. The CC plugin uses Claude Code's native sub-agent dispatch (Task tool). The headless shim is a ~1.5–2k LOC Node/TypeScript binary that re-implements the same dispatch loop using the Anthropic SDK directly. It is the biggest single new piece of code in v1.
 
 ### Canonical Artifact Contract (§6)
 
@@ -173,7 +178,7 @@ PR (from harness) ──► reviewer comment ──► GH Action (skill-improve.
       strata-component-improver (plan → edit → lint → PR)
 ```
 
-- **Trigger (§11.1):** `.github/workflows/skill-improve.yml` listens for `issue_comment.created` on PRs labeled `harness-generated`. No push/schedule/PR-open triggers.
+- **Trigger (§11.1):** .github/workflows/skill-improve.yml is primarily triggered by `issue_comment.created` on PRs labeled `harness-generated`, but the improver is designed to be trigger-agnostic (e.g., could be invoked by a failing CI check or a manual command).
 - **Broadened Scope (§11.2):** The improver tooling is capable of targeting:
   - **Skills**: `SKILL.md` and reference files.
   - **Hooks**: Scripts in `hooks/` (e.g., `inject-design-context.sh`).
