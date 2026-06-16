@@ -35,6 +35,35 @@ describe("runAgent", () => {
     if (r.ok) expect(r.value.skill).toBe("x");
   });
 
+  it("substitutes {{RESOLVED_REFERENCES}} into the prompt", async () => {
+    const sdk = await import("@cursor/sdk");
+    await runAgent({
+      skillPath: "skills/x/SKILL.md",
+      skillContent: "body",
+      siblingIndexJson: "[]",
+      promptTemplate: "refs:\n{{RESOLVED_REFERENCES}}",
+      repoRulesExcerpt: "",
+      rubric: "",
+      resolvedReferencesText: "- `references/foo.md` → EXISTS",
+    });
+    const promptArg = vi.mocked(sdk.Agent.prompt).mock.calls.at(-1)?.[0];
+    expect(promptArg).toContain("refs:\n- `references/foo.md` → EXISTS");
+  });
+
+  it("substitutes an empty string when resolvedReferencesText is omitted", async () => {
+    const sdk = await import("@cursor/sdk");
+    await runAgent({
+      skillPath: "skills/x/SKILL.md",
+      skillContent: "body",
+      siblingIndexJson: "[]",
+      promptTemplate: "[{{RESOLVED_REFERENCES}}]",
+      repoRulesExcerpt: "",
+      rubric: "",
+    });
+    const promptArg = vi.mocked(sdk.Agent.prompt).mock.calls.at(-1)?.[0];
+    expect(promptArg).toBe("[]");
+  });
+
   it("returns ok:false when the agent output fails schema validation", async () => {
     const sdk = await import("@cursor/sdk");
     vi.mocked(sdk.Agent.prompt).mockResolvedValueOnce({

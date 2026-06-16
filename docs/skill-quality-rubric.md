@@ -36,11 +36,11 @@ The body must teach the reader **how** to do the thing, not just describe **what
 
 The skill must be usable without hidden context.
 
-**Pass:** every file path or `references/...` resource mentioned in the body exists in the repo at the path stated.
+**Pass:** every file path or `references/...` resource mentioned in the body exists in the repo at the path stated. A path that resolves through a symlink to a real file counts as existing — rely on the pre-resolved resolution table, which already follows symlinks.
 
 **Warn:** mention of an external resource without a clear pointer (acceptable but suboptimal).
 
-**Fail (critical):** any file path or `references/...` resource referenced in the body does not exist in the repo.
+**Fail (critical):** any file path or `references/...` resource referenced in the body does not exist in the repo (the resolution table marks it `MISSING`).
 
 ### D — Anti-patterns absent
 

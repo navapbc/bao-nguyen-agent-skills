@@ -10,6 +10,8 @@ export interface RunAgentInput {
   promptTemplate: string;
   repoRulesExcerpt: string;
   rubric: string;
+  /** Authoritative EXISTS/MISSING table for the skill's linked resources (symlinks followed). */
+  resolvedReferencesText?: string;
 }
 
 export type RunAgentOutput =
@@ -36,6 +38,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentOutput> {
     SIBLING_INDEX: input.siblingIndexJson,
     REPO_RULES: input.repoRulesExcerpt,
     RUBRIC: input.rubric,
+    RESOLVED_REFERENCES: input.resolvedReferencesText ?? "",
   });
 
   let res: RunResult;
