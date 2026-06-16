@@ -1,6 +1,6 @@
 ---
 name: build-strata-sdk-model
-description: Adds a single Rails model to an existing Rails app — plain ActiveRecord, or a Strata SDK variant (application form, case, business process). Use when adding one model and following test-first development.
+description: Adds one Rails model via a direct single-agent test-first walkthrough — plain ActiveRecord, or a Strata SDK variant (application form, case, business process). Default; for the multi-agent variant use build-strata-sdk-model-workflow.
 ---
 
 # Build Strata SDK Model

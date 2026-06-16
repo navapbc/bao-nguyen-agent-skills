@@ -1,6 +1,6 @@
 ---
 name: build-strata-sdk-model-workflow
-description: Adds a single Rails model — plain ActiveRecord or a Strata SDK variant (application form, case, business process, task) — via a guided multi-agent workflow that proposes, audits, and verifies attributes before test-first implementation.
+description: Orchestrates adding one Rails model (plain ActiveRecord, or a Strata SDK application form, case, business process, task) as a multi-agent Workflow pipeline with attribute audit and two checkpoints. Use only when opting into orchestration.
 ---
 
 # Build Strata SDK Model (Workflow)
