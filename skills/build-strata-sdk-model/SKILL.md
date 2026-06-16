@@ -1,6 +1,6 @@
 ---
 name: build-strata-sdk-model
-description: Adds one Rails model via a direct single-agent test-first walkthrough — plain ActiveRecord, or a Strata SDK variant (application form, case, business process). Default; for the multi-agent variant use build-strata-sdk-model-workflow.
+description: Adds one Rails model via a direct single-agent test-first walkthrough — plain ActiveRecord, or a Strata SDK variant (application form, case, business process, task). Default; for the multi-agent variant use build-strata-sdk-model-workflow.
 ---
 
 # Build Strata SDK Model
@@ -217,7 +217,7 @@ For each kind, present the proposed table and ask:
 | **Appeal** | + `decision_being_appealed:string`, `decision_date:memorable_date`, `reason:text` |
 | **Other** | ask the user to enumerate the data the form collects, then map each to a catalog type or to a primitive |
 
-The SDK already provides `user_id`, `status`, `submitted_at` — **do not** propose those; they come from `Strata::ApplicationForm.base_attributes_for_generator`. Flag any attribute that has no Strata type (e.g. `email`, `phone`) as a primitive — the user can still use it, just without a typed widget.
+The SDK already provides `user_id`, `status`, `submitted_at` — **do not** propose those; they come from `Strata::ApplicationForm.base_attributes_for_generator`. Flag any attribute that has no Strata type (e.g. `email`, `phone`) as a primitive — the user can still use it, but without a typed widget.
 
 **Strata case:** propose case-specific bookkeeping attributes. The SDK already provides `application_form_id:uuid`, `status:integer`, `business_process_current_step:string`, `facts:jsonb` — **do not** propose those. Common additions tailored to `<PURPOSE>`:
 
