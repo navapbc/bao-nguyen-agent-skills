@@ -9,7 +9,9 @@ import { join } from "node:path";
 import type { AgentResult } from "./schema.js";
 import { validateAgentResult } from "./schema.js";
 
-export const RUBRIC_VERSION = "1";
+// Bump when grading semantics change so previously cached verdicts are not reused.
+// v2: self-containedness now defers to a pre-resolved reference table (symlinks followed).
+export const RUBRIC_VERSION = "2";
 
 export function cacheKey(
   skillContent: string,

@@ -24,6 +24,15 @@ Path: `{{SKILL_PATH}}`
 {{SKILL_CONTENT}}
 ```
 
+## Referenced resource resolution (authoritative)
+
+The relative file links in the skill body have already been resolved against the skill's directory on the real filesystem, **following symlinks**. Treat the table below as the single source of truth for dimension C (self-containedness):
+
+- A path marked `EXISTS` is present in the repo — even if it is a symlink. Do **not** independently re-check the filesystem and do **not** flag an `EXISTS` path as missing.
+- Only a path marked `MISSING` may be reported as a self-containedness failure.
+
+{{RESOLVED_REFERENCES}}
+
 ## Output schema
 
 Return strict JSON of the form:

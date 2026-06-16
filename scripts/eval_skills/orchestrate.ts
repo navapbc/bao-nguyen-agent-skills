@@ -5,6 +5,10 @@ import {
   serializeSiblingIndex,
 } from "./siblings.js";
 import {
+  formatResolvedReferences,
+  resolveReferences,
+} from "./references.js";
+import {
   cacheKey,
   readCache,
   writeCache,
@@ -26,6 +30,7 @@ export interface OrchestrateDeps {
     promptTemplate: string;
     repoRulesExcerpt: string;
     rubric: string;
+    resolvedReferencesText: string;
   }) => Promise<RunAgentOutput>;
   promptTemplate: string;
   repoRulesExcerpt: string;
@@ -92,6 +97,9 @@ export async function orchestrate(deps: OrchestrateDeps): Promise<OrchestrateOut
       const skillContent = readFileSync(absPath, "utf8");
       const siblings = allSiblings.filter((s) => s.path !== absPath);
       const siblingIndexJson = serializeSiblingIndex(siblings);
+      const resolvedReferencesText = formatResolvedReferences(
+        resolveReferences(absPath, skillContent),
+      );
       const key = cacheKey(skillContent, siblingIndexJson, RUBRIC_VERSION);
 
       const cached = readCache(deps.cacheDir, key);
@@ -107,6 +115,7 @@ export async function orchestrate(deps: OrchestrateDeps): Promise<OrchestrateOut
         promptTemplate: deps.promptTemplate,
         repoRulesExcerpt: deps.repoRulesExcerpt,
         rubric: deps.rubric,
+        resolvedReferencesText,
       });
 
       if (out.ok) {
