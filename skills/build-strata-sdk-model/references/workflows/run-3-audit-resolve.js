@@ -2,8 +2,8 @@ export const meta = {
   name: 'strata-model-audit-resolve',
   description: 'Audit the spec attributes for type/standards issues, then adversarially resolve the flags',
   phases: [
-    { title: 'Audit', detail: 'flag wrong types / non-standard attrs' },
-    { title: 'Resolve', detail: 'adversarially re-check flags and apply confirmed fixes' },
+    { title: 'Audit', detail: 'flag wrong types / non-standard attrs', model: 'opus' },
+    { title: 'Resolve', detail: 'adversarially re-check flags and apply confirmed fixes', model: 'opus' },
   ],
 }
 
@@ -76,7 +76,7 @@ const audit = await agent(
     'Flag every attribute whose type is invalid, is the wrong type for its meaning, duplicates a base attribute, or fails SDK standards.',
     'Return the flags array (empty if nothing is wrong).',
   ].join('\n'),
-  { label: 'audit', agentType: 'general-purpose', schema: FLAGS_SCHEMA },
+  { label: 'audit', agentType: 'general-purpose', schema: FLAGS_SCHEMA, model: 'opus', effort: 'low' },
 )
 
 phase('Resolve')
@@ -90,7 +90,7 @@ const resolution = await agent(
     JSON.stringify(audit.flags, null, 2),
     'Apply only confirmed fixes. Return revised_attrs (the full corrected attribute list) and changelog.',
   ].join('\n'),
-  { label: 'resolution', agentType: 'general-purpose', schema: RESOLUTION_SCHEMA },
+  { label: 'resolution', agentType: 'general-purpose', schema: RESOLUTION_SCHEMA, model: 'opus', effort: 'low' },
 )
 
 return { flags: audit.flags, resolution }

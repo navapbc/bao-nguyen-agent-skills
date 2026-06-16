@@ -2,8 +2,8 @@ export const meta = {
   name: 'strata-model-implement-review',
   description: 'Implement the confirmed model via the SDK generator + TDD, then review and fix autonomously',
   phases: [
-    { title: 'Implement', detail: 'plan, generate, TDD-strengthen, lint + test green' },
-    { title: 'Review', detail: 'autonomous test-first fix loop until clean' },
+    { title: 'Implement', detail: 'plan, generate, TDD-strengthen, lint + test green', model: 'opus' },
+    { title: 'Review', detail: 'autonomous test-first fix loop until clean', model: 'opus' },
   ],
 }
 
@@ -19,7 +19,7 @@ const implReport = await agent(
     'and get `make lint` and `make test` green. Then delete the temp spec file.',
     'Return a concise report: files written, generator command run, plan path, and final lint/test status.',
   ].join('\n'),
-  { label: 'implementation', agentType: 'general-purpose' },
+  { label: 'implementation', agentType: 'general-purpose', model: 'opus', effort: 'high' },
 )
 
 phase('Review')
@@ -35,7 +35,7 @@ const reviewReport = await agent(
     implReport,
     'Return a report of findings and the fixes you applied.',
   ].join('\n'),
-  { label: 'review', agentType: 'general-purpose' },
+  { label: 'review', agentType: 'general-purpose', model: 'opus', effort: 'high' },
 )
 
 return { implReport, reviewReport }

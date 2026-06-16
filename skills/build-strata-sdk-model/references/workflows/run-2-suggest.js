@@ -1,7 +1,7 @@
 export const meta = {
   name: 'strata-model-suggest',
   description: 'Suggest attributes likely missing from the model spec, based on app type and SDK facts',
-  phases: [{ title: 'Suggest', detail: 'propose missing attributes' }],
+  phases: [{ title: 'Suggest', detail: 'propose missing attributes', model: 'opus' }],
 }
 
 const PROPOSALS_SCHEMA = {
@@ -37,7 +37,7 @@ const result = await agent(
     'Never propose base attributes already provided by the SDK base class.',
     'Return the proposals array (empty if nothing to add).',
   ].join('\n'),
-  { label: 'suggestion', agentType: 'general-purpose', schema: PROPOSALS_SCHEMA },
+  { label: 'suggestion', agentType: 'general-purpose', schema: PROPOSALS_SCHEMA, model: 'opus', effort: 'low' },
 )
 
 return result

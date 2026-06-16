@@ -1,7 +1,7 @@
 export const meta = {
   name: 'strata-model-discovery',
   description: 'Locate the Rails app, verify Ruby, detect and read the Strata SDK, return SDK facts',
-  phases: [{ title: 'Discovery', detail: 'read gem source, return structured SDK facts' }],
+  phases: [{ title: 'Discovery', detail: 'read gem source, return structured SDK facts', model: 'haiku' }],
 }
 
 const SDK_FACTS_SCHEMA = {
@@ -42,7 +42,7 @@ const facts = await agent(
     'Do not ask questions and do not write files. Record any ambiguity in the notes field.',
     'Return the structured SDK facts object.',
   ].join('\n'),
-  { label: 'discovery', agentType: 'general-purpose', schema: SDK_FACTS_SCHEMA },
+  { label: 'discovery', agentType: 'general-purpose', schema: SDK_FACTS_SCHEMA, model: 'haiku', effort: 'high' },
 )
 
 return facts
