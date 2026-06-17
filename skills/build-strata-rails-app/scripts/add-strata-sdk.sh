@@ -3,13 +3,14 @@
 # add-strata-sdk.sh — install the Strata Government Digital Services SDK.
 # Run from INSIDE the <APP_NAME>/ directory.
 #
-# Appends the Strata gem lines to the Gemfile, runs the bundle (via make build),
-# then re-runs lint and test to confirm nothing broke.
+# Appends the Strata gem lines to the Gemfile, regenerates Gemfile.lock with a
+# local bundle install, runs the Docker build (make build), then re-runs lint
+# and test to confirm nothing broke.
 #
 # Markers the skill watches for:
 #   SDK_ALREADY_PRESENT — Gemfile already references the strata gem; nothing to do
-#   SDK_FAILED <step>   — the named step failed
-#   SDK_OK              — gem added, bundle + lint + test green
+#   SDK_FAILED <step>   — the named step failed (bundle / build / lint / test)
+#   SDK_OK              — gem added, bundle + build + lint + test green
 
 set -u
 
@@ -35,7 +36,17 @@ gem "validates_timeliness", "~> 8.0"
 EOF
 echo "SDK: appended strata gem lines to Gemfile"
 
-# 3. Bundle + re-verify ------------------------------------------------------
+# 3. Regenerate Gemfile.lock -------------------------------------------------
+# `make build` does a frozen/deployment bundle inside Docker and will reject a
+# stale lockfile. Update it locally first (Ruby + Bundler are already active
+# from the version-check step).
+echo "=== bundle install (update Gemfile.lock) ==="
+if ! bundle install; then
+  echo "SDK_FAILED: bundle"
+  exit 1
+fi
+
+# 4. Bundle + re-verify ------------------------------------------------------
 for target in "build" "lint" "test"; do
   echo "=== make $target ==="
   if ! make "$target"; then

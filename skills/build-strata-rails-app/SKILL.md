@@ -95,6 +95,8 @@ From inside `<APP_NAME>/`, run the verify script (it acts on the current directo
 sh <SKILL_DIR>/scripts/verify-app.sh
 ```
 
+This runs a full Docker image build plus the RSpec suite and takes several minutes. Run it in the **foreground with an extended timeout (e.g. 10 minutes)** — do not run it in the background.
+
 It runs, in order, `make .env` → `make init-db` → `make build` → `make precompile-assets` → `make lint` → `make test`, stopping at the first failure. Read the final marker:
 
 - **`VERIFY_OK`** → the app compiled and tests pass. Proceed to Step 8.
@@ -123,11 +125,11 @@ Ask the user:
   sh <SKILL_DIR>/scripts/add-strata-sdk.sh
   ```
 
-  This appends the Strata gem lines to the `Gemfile`, bundles (`make build`), and re-runs `make lint` and `make test`. Read the final marker:
+  This appends the Strata gem lines to the `Gemfile`, runs a local `bundle install` to regenerate `Gemfile.lock` (the Docker build does a frozen bundle and rejects a stale lockfile), then runs `make build`, `make lint`, and `make test`. Like Step 7 it includes a Docker build and the test suite, so run it in the **foreground with an extended timeout (e.g. 10 minutes)**, not in the background. Read the final marker:
 
-  - **`SDK_OK`** → SDK installed, Gemfile updated, lint + test still green. Report success.
+  - **`SDK_OK`** → SDK installed, Gemfile updated, lockfile bundled, lint + test still green. Report success.
   - **`SDK_ALREADY_PRESENT`** → the Gemfile already references the strata gem; nothing to do. Tell the user.
-  - **`SDK_FAILED <step>`** → report the named step (`build` / `lint` / `test`) and the error output above the marker, then stop.
+  - **`SDK_FAILED <step>`** → report the named step (`bundle` / `build` / `lint` / `test`) and the error output above the marker, then stop.
 
 ## Common pitfalls
 
@@ -135,7 +137,7 @@ Ask the user:
 |---------|-----|
 | `NEEDS_UV` from preflight | Ensure `~/.local/bin` (or uv tool install path) is on `$PATH`; user may need to restart shell. Install `uv` if missing. |
 | `NEEDS_DOCKER` from preflight | Docker daemon not running — ask user to start Docker Desktop, re-run preflight. |
-| `NEEDS_PORT_FREE` from preflight | Native Postgres or another process holds 5432 — free it (e.g. `brew services stop postgresql@16`) then re-run. |
+| `NEEDS_PORT_FREE` from preflight | Native Postgres or another process holds 5432 — free it (e.g. `brew services stop postgresql@16`) then re-run. If the holder is something like `ssh` (a tunnel to a remote DB), inspect with `lsof -i :5432` and close it gracefully rather than `kill -9`. |
 | `Makefile` merge conflict during `app install` | Usually accept the app template's Makefile version (per platform-cli docs on adding-an-app). |
 | User asks for Next.js / Python-Flask | Stop. This skill only supports Rails. Direct them to manual CLI usage. |
 | `VERIFY_FAILED build` with Docker errors | Docker daemon not running — start Docker Desktop and re-run. |

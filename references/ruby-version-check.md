@@ -35,7 +35,7 @@ First check whether the version is installed; if not, install it. Then activate 
 | Manager | Check installed | Install if missing | Activate |
 |---------|-----------------|--------------------|----------|
 | **rbenv** | `rbenv versions \| grep -q <REQUIRED_RUBY>` | `rbenv install <REQUIRED_RUBY>` | `rbenv local <REQUIRED_RUBY>` (run inside `<RAILS_DIR>`) |
-| **asdf** | `asdf list ruby \| grep -q <REQUIRED_RUBY>` | `asdf install ruby <REQUIRED_RUBY>` | `asdf local ruby <REQUIRED_RUBY>` (run inside `<RAILS_DIR>`) |
+| **asdf** | `asdf list ruby \| grep -q <REQUIRED_RUBY>` | `asdf install ruby <REQUIRED_RUBY>` | `asdf set ruby <REQUIRED_RUBY>` (asdf ≥ 0.16; older asdf uses `asdf local ruby <REQUIRED_RUBY>`) — run inside `<RAILS_DIR>` |
 | **rvm** | `rvm list strings \| grep -q <REQUIRED_RUBY>` | `rvm install <REQUIRED_RUBY>` | `rvm use <REQUIRED_RUBY>` |
 | **chruby** | `chruby \| grep -q <REQUIRED_RUBY>` | install via `ruby-install <REQUIRED_RUBY>` (tell user if `ruby-install` is missing) | `chruby <REQUIRED_RUBY>` |
 | **other / unsure** | — | — | Stop. Ask the user to switch manually, then confirm before continuing. |
@@ -59,6 +59,7 @@ If `bundle` is missing → `gem install bundler`. Then continue with the calling
 | Problem | Fix |
 |---------|-----|
 | `ruby -v` still old after `rbenv local` | Open a new shell, or run `eval "$(rbenv init -)"` in current shell |
+| `asdf local` fails with `invalid command provided: local` | asdf ≥ 0.16 replaced `local`/`global` — use `asdf set ruby <REQUIRED_RUBY>` |
 | `asdf install ruby <ver>` fails with build errors | User missing build deps (openssl, readline). Direct them to asdf-ruby README. |
 | Multiple version managers installed (e.g. rbenv + asdf) | Ask which one is authoritative; mixing causes silent shadowing |
 | `.ruby-version` and `Gemfile` disagree | `.ruby-version` wins for the version manager; Gemfile `ruby` line is enforced by Bundler. Ask user to reconcile. |
