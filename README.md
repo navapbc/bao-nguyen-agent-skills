@@ -48,8 +48,9 @@ npx skills update
 
 | Skill | Description |
 |-------|-------------|
-| `build-strata-rails-app` | Scaffolds a new Nava Strata application using nava-platform CLI and the navapbc/template-application-rails template |
+| `build-strata-rails-app` | Scaffolds a new Nava Strata application using nava-platform CLI and the navapbc/template-application-rails template, then optionally installs the Strata SDK. Delegates command sequences to bundled `scripts/` to reduce turns |
 | `build-strata-sdk-model` | Adds a single Rails model to an existing Rails app — plain ActiveRecord, or a Strata SDK variant (application form, case, business process) |
+| `build-strata-sdk-model-workflow` | Multi-agent Workflow orchestrator variant — proposes, audits, and verifies model attributes across two human checkpoints before test-first implementation |
 | `build-strata-app-form-views` | Builds views, flow, and routes for a Strata multi-page application form on top of an existing ApplicationForm model |
 
 ## Learn more

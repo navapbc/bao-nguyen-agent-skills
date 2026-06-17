@@ -19,6 +19,10 @@ python -m pytest tests/test_lint_skills.py -v -k "test_name_here"
 
 Each skill lives in `skills/<skill-name>/SKILL.md`. The linter (`scripts/lint_skills.py`) validates all skills against 12 rules on every CI run.
 
+A skill may bundle supporting files alongside its `SKILL.md`:
+- `references/` — shared markdown the skill reads before acting (e.g. `ruby-version-check.md`).
+- `scripts/` — shell scripts the skill invokes to collapse multi-command sequences into a single turn. Scripts print labeled status lines ending in a marker (e.g. `PREFLIGHT_OK`, `NEEDS_DOCKER`, `INSTALL_OK`, `VERIFY_FAILED <target>`) and use distinct exit codes; the SKILL.md instructs the model to read the marker and branch. SKILL.md references scripts by `<SKILL_DIR>/scripts/...` (absolute) so they resolve regardless of the working directory. The linter only validates `SKILL.md`, not these bundled files.
+
 **SKILL.md format:**
 ```markdown
 ---
