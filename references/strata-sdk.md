@@ -4,6 +4,20 @@ Authoritative knowledge of the Strata SDK Rails engine: docs, generators, models
 
 The SDK lives at `https://github.com/navapbc/strata-sdk-rails` and is installed as a gem via Bundler. Run `bundle show strata` to find the local install path (`<SDK_GEM_PATH>`). The repo is also called `flex-sdk` upstream — both URLs resolve.
 
+## 0. Installation
+
+Add these lines to the app's `Gemfile`, then `bundle install`:
+
+```ruby
+# Strata Government Digital Services SDK Rails engine
+gem "strata", git: "https://github.com/navapbc/strata-sdk-rails.git"
+
+# Strata gem only requires validates_timeliness version 7 for Rails 7 which is the minimum Strata Rails version.
+gem "validates_timeliness", "~> 8.0"
+```
+
+The `build-strata-rails-app` skill offers to do this automatically at the end of scaffolding (`scripts/add-strata-sdk.sh`), which also re-runs lint + test.
+
 ## 1. Docs catalog
 
 ```sh
