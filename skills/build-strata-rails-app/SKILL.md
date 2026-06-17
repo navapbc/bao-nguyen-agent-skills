@@ -1,13 +1,17 @@
 ---
 name: build-strata-rails-app
-description: Scaffolds a new Nava Strata application using nava-platform CLI and the navapbc/template-application-rails template. Use when user says build a strata app, scaffold a rails app, apply the rails template, or start a new Strata Rails project.
+description: Scaffolds a Nava Strata Rails application with the nava-platform CLI and navapbc/template-application-rails template, then optionally installs the Strata SDK. Use when user says build a strata app, scaffold a rails app, or apply the rails template.
 ---
 
 # Build Strata Rails App
 
-## Overview 
+## Overview
 
-Scaffolds a new Nava Strata application in the user's current project directory using `nava-platform app install` with the Rails application template, then runs the app's make targets to verify it compiles and tests pass.
+Scaffolds a new Nava Strata application in the user's current project directory using `nava-platform app install` with the Rails application template, runs the app's make targets to verify it compiles and tests pass, then offers to install the Strata SDK.
+
+Most non-interactive command sequences are delegated to scripts in this skill's `scripts/` directory so each phase runs in a single turn. Each script prints labeled status lines and a final marker; read the marker to decide the next move. Interactive steps (confirm intent, ask for the app name, Ruby version-manager choice) stay with the model.
+
+**`<SKILL_DIR>`** = the absolute path to this skill's directory (the folder containing this `SKILL.md`). Every script invocation below uses `<SKILL_DIR>/scripts/...` so it resolves regardless of the current working directory — including when you've `cd`-ed into the generated app. The scripts themselves act on the current working directory, so always `cd` to the right place first as each step directs.
 
 **Supported templates (currently):** Rails only.
 
@@ -20,186 +24,124 @@ Ask the user exactly this:
 - If reply is "skip" / "no" / "exit" / anything declining → stop the skill. Do not proceed. Do not run any commands.
 - If reply confirms → proceed to Step 2.
 
-## Step 2: Check / install Nava Platform CLI
+## Step 2: Preflight checks
 
-Check whether `nava-platform` is installed:
-
-```sh
-nava-platform --help
-```
-
-- If the command succeeds → CLI installed, proceed to Step 3.
-- If the command fails (not found / error) → install it.
-
-**Install via `uv` (preferred):**
-
-First check whether `uv` is available:
+Run the preflight script from the current working directory (the user's project root):
 
 ```sh
-uv --version
+sh <SKILL_DIR>/scripts/preflight.sh
 ```
 
-- If `uv` is installed, run:
-  ```sh
-  uv tool install git+https://github.com/navapbc/platform-cli
-  ```
-- If `uv` is NOT installed, tell the user that `uv` is required and point them to https://docs.astral.sh/uv/getting-started/installation/ — then stop. Do not attempt alternative install methods (pipx, nix, docker) without user confirmation.
+It checks (and where safe, fixes) the Nava Platform CLI, the Docker daemon, the Postgres port, and the git repo. Read the final marker:
 
-After install, re-run `nava-platform --help` to verify. If still failing, stop and report the error to the user.
+- **`PREFLIGHT_OK`** → all checks passed. Proceed to Step 3.
+- **`NEEDS_UV`** → `uv` is required to install the CLI and is missing (or the install didn't land on `$PATH`). Tell the user to install `uv` (https://docs.astral.sh/uv/getting-started/installation/) or restart their shell, then stop. Do not attempt pipx/nix/docker without user confirmation.
+- **`NEEDS_DOCKER`** → ask the user to start Docker Desktop, then re-run the script.
+- **`NEEDS_PORT_FREE`** → port 5432 is held by a process the script won't auto-stop (native `postgres` or unknown). Relay the printed message (e.g. `brew services stop postgresql@16`), wait for the user to free the port, then re-run the script.
 
-## Step 3: Check Docker daemon, Postgres port, and ensure current directory is a git repository
+The script auto-stops a Docker container occupying 5432 and runs `git init` if the directory isn't a repo — no action needed for those.
 
-First, verify Docker is running:
-
-```sh
-docker ps
-```
-
-- If the command succeeds → Docker daemon is running, proceed.
-- If the command fails (socket error, daemon not running) → ask user to start Docker Desktop, then retry.
-
-**Check for Postgres port (5432) conflicts:**
-
-Check if anything is listening on port 5432:
-
-```sh
-lsof -iTCP:5432 -sTCP:LISTEN -t
-```
-
-- If the output is **empty** → port is free, proceed.
-- If the output is **NOT empty** → something is using the port. Determine what it is:
-
-  ```sh
-  lsof -iTCP:5432 -sTCP:LISTEN
-  ```
-
-  Inspect the `COMMAND` column of the output:
-
-  - **If the command is `com.docke` / `docker` / `docker-proxy`** → a Docker container is occupying the port. Stop it:
-    ```sh
-    docker stop $(docker ps --filter "publish=5432" -q)
-    ```
-  - **If the command is `postgres`** → a native PostgreSQL instance is running (likely via Homebrew or a system package). **Do NOT stop it automatically.** Tell the user:
-    > A local PostgreSQL server is already running on port 5432. Please stop it before continuing. For Homebrew: `brew services stop postgresql@16` (adjust the version if needed). Then re-run this step.
-
-    Stop and wait for the user to confirm they have freed the port.
-  - **If the command is something else** → report the process name to the user and ask them to free port 5432 manually. Stop and wait for confirmation.
-
-Then check git status:
-
-```sh
-git rev-parse --is-inside-work-tree
-```
-
-- If it prints `true` → already a git repo, proceed.
-- If it errors → current dir is not a git repo. Run `git init` in the current working directory, then proceed.
-
-**Do NOT** run `git init` if the directory already is inside a git repo — it would be redundant.
-
-## Step 4: Ask for the app name
+## Step 3: Ask for the app name
 
 Ask the user:
 
 > **What should the app be called?** (lowercase letters, digits, dashes, underscores only — e.g. `my-super-awesome-app`)
 
-Validate the answer matches `^[a-z0-9_-]+$`. If not, ask again.
+Store the answer as `<APP_NAME>`. (The install script re-validates the name, so don't worry about edge cases here.)
 
-Store the answer as `<APP_NAME>`.
+## Step 4: Install the app
 
-## Step 5: Check for existing app directory
-
-Before applying the template, verify that a directory named `<APP_NAME>/` does **not** already exist in the current working directory. Use `ls` (avoid `test -d` — it returns true for symlinks to directories and other edge cases that aren't real fresh-dir collisions):
+Run the install script with the chosen name from the project root:
 
 ```sh
-ls -ld -- <APP_NAME>/ 2>/dev/null
+sh <SKILL_DIR>/scripts/install-app.sh <APP_NAME>
 ```
 
-The trailing `/` forces the path to resolve as a directory; if `<APP_NAME>` is a regular file or doesn't exist, `ls` exits non-zero with no output.
+Read the final marker:
 
-Interpret the result:
+- **`INSTALL_OK <APP_NAME>`** → the `<APP_NAME>/` subdirectory was created. Proceed to Step 5.
+- **`INVALID_NAME`** → the name has illegal characters. Go back to Step 3 and ask again.
+- **`DIR_EXISTS`** → a directory named `<APP_NAME>/` already exists. Warn the user that installing into it may cause conflicts; ask them to rename/remove it or pick a different name, then re-run.
+- **`INSTALL_FAILED`** → report the exact CLI error printed above the marker and stop.
 
-- **No output, non-zero exit** → directory does not exist. Proceed to Step 6.
-- **Output prints a directory entry, zero exit** → directory already exists. Warn the user:
-  > A directory named `<APP_NAME>/` already exists. Installing the template into an existing directory may cause conflicts. Please rename or remove it first, then confirm to continue.
+## Step 5: Enter the generated app directory
 
-  Stop and wait for the user to resolve before proceeding.
-
-## Step 6: Apply the Rails template
-
-Run the template install directly. Pass `--data app_local_port=3000` to pre-answer the only interactive prompt (the CLI auto-injects `app_name` from the positional argument):
-
-```sh
-nava-platform app install --template-uri https://github.com/navapbc/template-application-rails --data app_local_port=3000 . <APP_NAME>
-```
-
-This creates a `<APP_NAME>/` subdirectory containing the generated Rails app. If the command fails, stop and report the exact error to the user.
-
-**After success**, proceed to Step 7.
-
-## Step 7: Proceed into the generated app directory
-
-After `nava-platform app install` completes, check the current working directory:
+Check the current working directory:
 
 ```sh
 pwd
 ```
 
-- If the output **already ends with** `<APP_NAME>` (e.g. `/Users/me/my-project/<APP_NAME>`) → you are already inside the app directory. Proceed to Step 8.
-- If the output does **NOT** end with `<APP_NAME>` (e.g. `/Users/me/my-project`) → you are still in the project root. Change into the app directory:
-  ```sh
-  cd <APP_NAME>
-  ```
+- If the output **already ends with** `<APP_NAME>` → you're inside the app directory. Proceed to Step 6.
+- Otherwise → `cd <APP_NAME>`.
 
-All subsequent commands (Step 8 onward) must run from inside `<APP_NAME>/`.
+All subsequent steps must run from inside `<APP_NAME>/`.
 
-## Step 8: Verify Ruby version
+## Step 6: Verify Ruby version
 
-The generated app pins a Ruby version in `.ruby-version` and/or `Gemfile`. The make targets in Step 9 (`make lint`, `make test`, asset precompile) will fail confusingly if the active Ruby doesn't match.
+The generated app pins a Ruby version. The make targets in Step 7 will fail confusingly if the active Ruby doesn't match. This step is interactive (the user must say which version manager they use), so it is **not** scripted.
 
 **Follow the shared reference: [`references/ruby-version-check.md`](references/ruby-version-check.md)**.
 
-It walks through:
+It walks through reading `.ruby-version` / `Gemfile` / `.tool-versions`, comparing against `ruby -v`, asking which version manager the user uses (rbenv / asdf / rvm / chruby / other), installing + activating the required version, and verifying `bundle -v`.
 
-- **A.** read `.ruby-version` / `Gemfile` / `.tool-versions` → `<REQUIRED_RUBY>`
-- **B.** compare against `ruby -v`
-- **C.** ask the user which version manager they use (rbenv / asdf / rvm / chruby / other)
-- **D.** install the version if missing, then activate it (per-manager commands in the reference's table)
-- **E.** verify `bundle -v`
+`<RAILS_DIR>` in the reference = the `<APP_NAME>/` directory you entered in Step 5. Do not proceed to Step 7 until `ruby -v` matches the required version and `bundle -v` succeeds.
 
-`<RAILS_DIR>` in the reference = the `<APP_NAME>/` directory you `cd`-ed into in Step 7. Do not proceed to Step 9 until `ruby -v` matches `<REQUIRED_RUBY>` and `bundle -v` succeeds.
+## Step 7: Verify the app
 
-## Step 9: Prepare and verify the app
+From inside `<APP_NAME>/`, run the verify script (it acts on the current directory, so the `cd` from Step 5 matters):
 
-Run the following make targets **in order** from inside the `<APP_NAME>/` directory. Each must succeed before running the next:
+```sh
+sh <SKILL_DIR>/scripts/verify-app.sh
+```
 
-1. `make .env` — generate the local `.env` file
-2. `make init-db` — create and initialize test database
-3. `make build` — build the container image
-4. `make precompile-assets` — precompile Rails assets
-5. `make lint` — run linters (rubocop etc.)
-6. `make test` — run the rspec test suite
+It runs, in order, `make .env` → `make init-db` → `make build` → `make precompile-assets` → `make lint` → `make test`, stopping at the first failure. Read the final marker:
 
-If any step fails, stop and report the exact error to the user. Do not proceed to later steps on failure.
+- **`VERIFY_OK`** → the app compiled and tests pass. Proceed to Step 8.
+- **`VERIFY_FAILED <target>`** → report the named target and the error output above the marker, then stop.
 
-**Note:** Steps 4-6 may show deprecation warnings (e.g., "Passing nil to :model argument"). These are expected with fresh templates and do not indicate failure.
+**Note:** later targets may show deprecation warnings (e.g. "Passing nil to :model argument"). These are expected with fresh templates and do not indicate failure.
 
-## Step 10: Report success
+## Step 8: Report success
 
-If `make lint` and `make test` both pass, the app compiled correctly. Tell the user:
+Tell the user:
 
 > **App is ready.** Run `make start-container` from inside `<APP_NAME>/`, then visit http://localhost:3000
+
+Then proceed to Step 9.
+
+## Step 9: Offer the Strata SDK
+
+Ask the user:
+
+> **Do you also want to install the Strata Government Digital Services SDK? (reply "yes", or "skip" to finish)**
+
+- If reply declines → done. The skill is complete.
+- If reply confirms → from inside `<APP_NAME>/`, run:
+
+  ```sh
+  sh <SKILL_DIR>/scripts/add-strata-sdk.sh
+  ```
+
+  This appends the Strata gem lines to the `Gemfile`, bundles (`make build`), and re-runs `make lint` and `make test`. Read the final marker:
+
+  - **`SDK_OK`** → SDK installed, Gemfile updated, lint + test still green. Report success.
+  - **`SDK_ALREADY_PRESENT`** → the Gemfile already references the strata gem; nothing to do. Tell the user.
+  - **`SDK_FAILED <step>`** → report the named step (`build` / `lint` / `test`) and the error output above the marker, then stop.
 
 ## Common pitfalls
 
 | Problem | Fix |
 |---------|-----|
-| `nava-platform: command not found` after install | Ensure `~/.local/bin` (or uv tool install path) is on `$PATH`; user may need to restart shell |
-| `make build` fails with Docker errors | Docker daemon not running — ask user to start Docker Desktop |
-| `Makefile` merge conflict during `app install` | Usually accept the app template's Makefile version (per platform-cli docs on adding-an-app) |
+| `NEEDS_UV` from preflight | Ensure `~/.local/bin` (or uv tool install path) is on `$PATH`; user may need to restart shell. Install `uv` if missing. |
+| `NEEDS_DOCKER` from preflight | Docker daemon not running — ask user to start Docker Desktop, re-run preflight. |
+| `NEEDS_PORT_FREE` from preflight | Native Postgres or another process holds 5432 — free it (e.g. `brew services stop postgresql@16`) then re-run. |
+| `Makefile` merge conflict during `app install` | Usually accept the app template's Makefile version (per platform-cli docs on adding-an-app). |
 | User asks for Next.js / Python-Flask | Stop. This skill only supports Rails. Direct them to manual CLI usage. |
-| Running `nava-platform app install` outside a git repo | `copier` requires git |
+| `VERIFY_FAILED build` with Docker errors | Docker daemon not running — start Docker Desktop and re-run. |
 
 ## Reference
 
 - Platform CLI docs: https://github.com/navapbc/platform-cli
 - Rails template: https://github.com/navapbc/template-application-rails
+- Strata SDK Rails engine: https://github.com/navapbc/strata-sdk-rails
