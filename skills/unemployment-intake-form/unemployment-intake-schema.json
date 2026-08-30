@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unemployment Insurance Intake Form Schema",
+  "description": "Domain model for unemployment insurance initial claim intake. Encodes field requirements, data types, validation rules, and form structure common across US state unemployment programs. Based on DOL guidance, NJ UI modernization, and cross-state patterns.",
+  "version": "0.1.0",
+
+  "state_config": {
+    "description": "Single config file for all state-specific branding and values. Create on day one. All components read from this — never hardcode state names or branding.",
+    "fields": {
+      "name": { "example": "Department of Labor", "description": "Agency name" },
+      "state": { "example": "Delaware", "description": "Full state name" },
+      "stateAbbreviation": { "example": "DE", "description": "Two-letter state code" },
+      "department": { "example": "Division of Unemployment Insurance", "description": "Department/division name" },
+      "departmentAbbreviation": { "example": "DUI", "description": "Department abbreviation" },
+      "governor": { "example": "Matt Meyer", "description": "Governor name for official headers" },
+      "logo": { "example": "/images/site-logo-de.png", "description": "State/agency logo path" },
+      "stateSeal": { "example": "/images/state-seal.svg", "description": "State seal path" },
+      "supportPhone": { "example": "1-800-794-3032", "description": "Claimant support phone" },
+      "supportEmail": { "example": "support@labor.delaware.gov", "description": "Support email" },
+      "websiteUrl": { "example": "https://labor.delaware.gov", "description": "Agency website" },
+      "jobSearchPortal": { "example": "Delaware JobLink", "description": "State job search portal name" },
+      "jobSearchUrl": { "example": "https://joblink.delaware.gov/", "description": "Job search portal URL" },
+      "weeklySearchContacts": { "example": 3, "description": "Required weekly job search contacts (state-specific)" }
+    }
+  },
+
+  "domain_types": {
+    "name": {
+      "description": "Person name",
+      "fields": {
+        "first": { "type": "string", "required": true, "max_length": 50, "label": "First name" },
+        "middle": { "type": "string", "required": false, "max_length": 50, "label": "Middle name" },
+        "last": { "type": "string", "required": true, "max_length": 50, "label": "Last name" },
+        "suffix": { "type": "string", "required": false, "enum": ["Jr.", "Sr.", "II", "III", "IV"], "label": "Suffix" }
+      },
+      "display_format": "{last}, {first} {middle}",
+      "storage_hint": "3-4 string columns or nested object"
+    },
+    "address": {
+      "description": "US mailing address",
+      "fields": {
+        "street1": { "type": "string", "required": true, "max_length": 100, "label": "Street address" },
+        "street2": { "type": "string", "required": false, "max_length": 100, "label": "Street address line 2" },
+        "city": { "type": "string", "required": true, "max_length": 50, "label": "City" },
+        "state": { "type": "string", "required": true, "enum": "US_STATES_AND_TERRITORIES", "label": "State" },
+        "zip": { "type": "string", "required": true, "pattern": "^[0-9]{5}$", "label": "ZIP code" }
+      },
+      "storage_hint": "5 string columns or nested object"
+    },
+    "tax_id": {
+      "description": "Social Security Number",
+      "type": "string",
+      "pattern": "^[0-9]{9}$",
+      "input_format": "Strip dashes on submit, accept XXX-XX-XXXX or XXXXXXXXX",
+      "display_format": "XXX-XX-{last4} — never show full SSN in UI",
+      "storage_hint": "Encrypted string, 9 digits no dashes"
+    },
+    "memorable_date": {
+      "description": "Date input using USWDS DatePicker component",
+      "input_format": "USWDS DatePicker with calendar popup and keyboard navigation. Renders as MM/DD/YYYY text input with a calendar icon toggle",
+      "storage": "date (ISO 8601: YYYY-MM-DD)",
+      "validation": "Must be a valid calendar date"
+    },
+    "money": {
+      "description": "Dollar amount for wages, earnings, benefits",
+      "type": "integer",
+      "input_format": "Whole dollars only, strip non-numeric, $ prefix and .00 suffix displayed",
+      "max": 999999,
+      "storage_hint": "Integer cents or whole dollars depending on precision needs"
+    },
+    "phone": {
+      "description": "US phone number",
+      "type": "string",
+      "pattern": "^[0-9]{10}$",
+      "input_format": "10 digits, accept (XXX) XXX-XXXX or XXXXXXXXXX",
+      "display_format": "(XXX) XXX-XXXX"
+    },
+    "yes_no": {
+      "description": "Boolean question rendered as radio buttons",
+      "type": "boolean",
+      "input_format": "Radio group with Yes/No inside fieldset with legend as question text"
+    }
+  },
+
+  "form_sections": [
+    {
+      "id": "screener",
+      "title": "Before you get started",
+      "purpose": "Pre-screening to surface likely ineligibility early rather than after a full application",
+      "pages": [
+        {
+          "id": "work_location",
+          "fields": [
+            { "name": "worked_in_state", "type": "yes_no", "label": "Did you work in {state_name}?", "required": true },
+            { "name": "work_state", "type": "string", "enum": "US_STATES_AND_TERRITORIES", "label": "Which state did you work in?", "show_when": "worked_in_state == false" }
+          ]
+        },
+        {
+          "id": "existing_benefits",
+          "fields": [
+            { "name": "receiving_social_security", "type": "yes_no", "label": "Are you currently receiving Social Security benefits?", "required": true },
+            { "name": "receiving_workers_comp", "type": "yes_no", "label": "Are you currently receiving workers' compensation?", "required": true },
+            { "name": "receiving_pension", "type": "yes_no", "label": "Are you currently receiving a pension from any employer?", "required": true }
+          ]
+        },
+        {
+          "id": "prior_claims",
+          "fields": [
+            { "name": "filed_claim_other_state", "type": "yes_no", "label": "Have you filed an unemployment claim in another state in the last 12 months?", "required": true },
+            { "name": "prior_claim_state", "type": "string", "enum": "US_STATES_AND_TERRITORIES", "label": "Which state?", "show_when": "filed_claim_other_state == true" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "personal_information",
+      "title": "Personal information",
+      "pages": [
+        {
+          "id": "identity",
+          "fields": [
+            { "name": "claimant_name", "type": "name", "required": true },
+            { "name": "ssn", "type": "tax_id", "label": "Social Security number", "required": true },
+            { "name": "date_of_birth", "type": "memorable_date", "label": "Date of birth", "required": true },
+            { "name": "email", "type": "string", "format": "email", "label": "Email address", "required": true }
+          ]
+        },
+        {
+          "id": "contact",
+          "fields": [
+            { "name": "phone_primary", "type": "phone", "label": "Phone number", "required": true },
+            { "name": "mailing_address", "type": "address", "required": true },
+            { "name": "residence_address_same", "type": "yes_no", "label": "Is your home address the same as your mailing address?", "required": true },
+            { "name": "residence_address", "type": "address", "label": "Home address", "show_when": "residence_address_same == false" }
+          ]
+        },
+        {
+          "id": "citizenship",
+          "fields": [
+            { "name": "us_citizen", "type": "yes_no", "label": "Are you a US citizen?", "required": true },
+            { "name": "authorized_to_work", "type": "yes_no", "label": "Are you legally authorized to work in the United States?", "required": true, "show_when": "us_citizen == false" }
+          ]
+        },
+        {
+          "id": "demographics",
+          "note": "Optional. Used for program reporting, not eligibility determination",
+          "fields": [
+            { "name": "language_preference", "type": "string", "enum": ["English", "Spanish", "Other"], "label": "Preferred language", "required": false },
+            { "name": "gender", "type": "string", "enum": ["Male", "Female", "Non-binary", "Prefer not to say"], "label": "Gender", "required": false },
+            { "name": "ethnicity", "type": "string", "enum": ["Hispanic or Latino", "Not Hispanic or Latino", "Prefer not to say"], "label": "Ethnicity", "required": false },
+            { "name": "disability", "type": "yes_no", "label": "Do you have a disability?", "required": false },
+            { "name": "is_veteran", "type": "yes_no", "label": "Have you served in the US military?", "required": false },
+            { "name": "branch_of_service", "type": "string", "label": "Branch of service", "show_when": "is_veteran == true" }
+          ]
+        },
+        {
+          "id": "education",
+          "fields": [
+            { "name": "education_level", "type": "string", "enum": ["Less than high school", "High school diploma or GED", "Some college", "Associate degree", "Bachelor's degree", "Graduate degree"], "label": "Highest level of education completed", "required": true }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "employment_history",
+      "title": "Employment history",
+      "note": "Employment for the last 18 months. Most states require all employers in the base period.",
+      "pages": [
+        {
+          "id": "employers",
+          "repeatable": { "max": 5, "add_label": "Add another employer", "remove_label": "Remove this employer" },
+          "fields": [
+            { "name": "employer_name", "type": "string", "max_length": 40, "label": "Employer name", "required": true },
+            { "name": "employer_address", "type": "address", "required": true },
+            { "name": "employer_phone", "type": "phone", "label": "Employer phone number", "required": true },
+            { "name": "job_title", "type": "string", "max_length": 50, "label": "Job title", "required": true },
+            { "name": "employment_start_date", "type": "memorable_date", "label": "Start date", "required": true },
+            { "name": "employment_end_date", "type": "memorable_date", "label": "Last day of work", "required": true },
+            { "name": "reason_for_leaving", "type": "string", "enum": ["Laid off", "Fired or discharged", "Quit voluntarily", "Still working reduced hours", "Temporary job ended", "Strike or lockout", "Other"], "label": "Reason you are no longer working for this employer", "required": true },
+            { "name": "reason_details", "type": "string", "max_length": 500, "label": "Provide details about why you left", "required": true },
+            { "name": "gross_wages", "type": "money", "label": "Total gross wages from this employer (last quarter)", "required": true },
+            { "name": "hours_per_week", "type": "integer", "min": 1, "max": 168, "label": "Average hours per week", "required": true }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "occupation_and_income",
+      "title": "Occupation and income",
+      "pages": [
+        {
+          "id": "occupation",
+          "fields": [
+            { "name": "usual_occupation", "type": "string", "max_length": 50, "label": "What is your usual occupation?", "required": true },
+            { "name": "union_member", "type": "yes_no", "label": "Are you a member of a union?", "required": true },
+            { "name": "temporarily_laid_off", "type": "yes_no", "label": "Are you temporarily laid off with a definite return-to-work date?", "required": true },
+            { "name": "return_date", "type": "memorable_date", "label": "Expected return to work date", "show_when": "temporarily_laid_off == true" }
+          ]
+        },
+        {
+          "id": "tax_and_payment",
+          "fields": [
+            { "name": "payment_method", "type": "string", "enum": ["Direct deposit", "Debit card"], "label": "How would you like to receive your benefit payments?", "required": true },
+            { "name": "routing_number", "type": "string", "pattern": "^[0-9]{9}$", "label": "Bank routing number", "show_when": "payment_method == Direct deposit" },
+            { "name": "account_number", "type": "string", "label": "Bank account number", "show_when": "payment_method == Direct deposit" },
+            { "name": "account_type", "type": "string", "enum": ["Checking", "Savings"], "label": "Account type", "show_when": "payment_method == Direct deposit" },
+            { "name": "federal_tax_withholding", "type": "yes_no", "label": "Would you like federal income tax withheld from your benefit payments?", "required": true },
+            { "name": "state_tax_withholding", "type": "yes_no", "label": "Would you like state income tax withheld from your benefit payments?", "required": true }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dependents",
+      "title": "Dependents",
+      "note": "Some states provide additional benefits for dependents. State-specific.",
+      "pages": [
+        {
+          "id": "claim_dependents",
+          "fields": [
+            { "name": "wishes_to_claim_dependents", "type": "yes_no", "label": "Do you wish to claim dependent benefits?", "required": true },
+            { "name": "number_of_dependent_children", "type": "integer", "min": 0, "max": 20, "label": "Number of dependent children", "show_when": "wishes_to_claim_dependents == true" },
+            { "name": "has_dependent_spouse", "type": "yes_no", "label": "Do you have a dependent spouse?", "show_when": "wishes_to_claim_dependents == true" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "review_and_submit",
+      "title": "Review and submit",
+      "pages": [
+        {
+          "id": "review",
+          "type": "review_page",
+          "note": "Read-only summary of all sections with edit links back to each"
+        },
+        {
+          "id": "certify",
+          "fields": [
+            { "name": "certify_accurate", "type": "boolean", "must_be_true": true, "label": "I certify that the information provided is true and accurate to the best of my knowledge. I understand that providing false information may result in penalties under federal and state law." }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "state_extensions": {
+    "note": "The base schema covers federal requirements and common patterns. States extend by adding fields, modifying enums, or adding sections.",
+    "common_variations": [
+      "Separation reason enums vary by state",
+      "Dependent benefit eligibility rules vary",
+      "Base period definition (standard vs alternate) varies",
+      "Some states ask about school/training at intake, others only at weekly certification",
+      "Federal/military employment requires additional fields (SF-8, DD-214)",
+      "Some states require employer FEIN",
+      "Alien registration number required for non-citizens in some states"
+    ]
+  }
+}
